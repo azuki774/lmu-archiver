@@ -63,4 +63,5 @@ docker build -t lmu-archiver .
 docker run --rm lmu-archiver --help
 ```
 
-The image runs as a non-root user and currently only prints CLI help.
+The runtime image is `gcr.io/distroless/static-debian13:nonroot`. It runs as a
+non-root user and currently only prints CLI help.
