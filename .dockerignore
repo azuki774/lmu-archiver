@@ -8,3 +8,6 @@
 !cmd/**
 !internal/
 !internal/**
+!testdata/
+!testdata/mock-api/
+!testdata/mock-api/**
