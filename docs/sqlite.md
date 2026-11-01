@@ -160,14 +160,14 @@ fields. There is no event foreign key or per-race delta.
 
 ### `capture_observations`
 
-Added by migration `00002_capture_observations.sql`. Primary key:
+Defined in the initial migration `00001_archive.sql`. Primary key:
 **`(capture_id, player_id)`**. `capture_id` is nonblank TEXT from the capture's
 manifest; `player_id` references `players(player_id)`.
 
 The marker is inserted in the same transaction as results and the observation.
 An existing marker suppresses only the duplicate observation; result rows are
-still reimported. Original observations from before this migration are retained
-unchanged. Capture IDs must remain stable when backing up or relocating captures.
+still reimported. Capture IDs must remain stable when backing up or relocating
+captures.
 
 ## Indexes
 
@@ -343,7 +343,7 @@ retains the capture for `sync --skip-download --input ...`.
   explicit write operation before reading.
 - goose records applied versions in its own management table, in addition to
   the six application tables. Do not edit an applied migration; add a new file.
-- The initial Down migration drops all five data tables. It cannot restore
+- The initial Down migration drops all six application tables. It cannot restore
   deleted data, and the archive CLI does not expose a Down command.
 - Back up before destructive schema changes. Copy the database after stopping
   writers and closing their connections, or use SQLite's backup API for a live

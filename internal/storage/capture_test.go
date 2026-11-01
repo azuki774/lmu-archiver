@@ -68,34 +68,34 @@ func TestReadOnlyDoesNotCreateMigrateOrWrite(t *testing.T) {
 		t.Fatal("read-only connection allowed writing")
 	}
 	reader.Close()
-	// A v1 archive must be explicitly migrated, not modified by a reader.
-	writer, err = Open(ctx, path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	if err := writer.RecordRating(ctx, Player{SteamID: "self"}, RatingSnapshot{ObservedAt: at, Source: "authenticate", DRElo: 1456.25}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := writer.db.Exec(`DROP TABLE capture_observations; DELETE FROM goose_db_version WHERE version_id=2`); err != nil {
-		t.Fatal(err)
-	}
-	if s, err := OpenReadOnly(ctx, path); err == nil {
-		s.Close()
-		t.Fatal("outdated schema silently migrated or accepted")
-	}
-	var version int
-	if err := writer.db.QueryRow(`SELECT max(version_id) FROM goose_db_version`).Scan(&version); err != nil || version != 1 {
-		t.Fatalf("read-only open changed old schema: version=%d, err=%v", version, err)
-	}
-	writer.Close()
+	// A schema from a newer executable must be rejected without modifying it.
 	writer, err = Open(ctx, path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer writer.Close()
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	if err := writer.RecordRating(ctx, Player{SteamID: "self"}, RatingSnapshot{ObservedAt: at, Source: "authenticate", DRElo: 1456.25}); err != nil {
+		t.Fatal(err)
+	}
+	var currentVersion int
+	if err := writer.db.QueryRow(`SELECT max(version_id) FROM goose_db_version`).Scan(&currentVersion); err != nil {
+		t.Fatal(err)
+	}
+	futureVersion := currentVersion + 1
+	if _, err := writer.db.Exec(`INSERT INTO goose_db_version(version_id,is_applied) VALUES(?,1)`, futureVersion); err != nil {
+		t.Fatal(err)
+	}
+	if s, err := OpenReadOnly(ctx, path); err == nil {
+		s.Close()
+		t.Fatal("unsupported schema was accepted")
+	}
+	var version int
+	if err := writer.db.QueryRow(`SELECT max(version_id) FROM goose_db_version`).Scan(&version); err != nil || version != futureVersion {
+		t.Fatalf("read-only open changed unsupported schema: version=%d, err=%v", version, err)
+	}
 	ratings, err := writer.Ratings(ctx, "self", at, at.Add(time.Hour))
 	if err != nil || len(ratings) != 1 || ratings[0].DRElo != 1456.25 {
-		t.Fatalf("migration changed existing observations: %+v %v", ratings, err)
+		t.Fatalf("read-only open changed existing observations: %+v %v", ratings, err)
 	}
 }

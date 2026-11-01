@@ -77,11 +77,18 @@ CREATE TABLE rating_snapshots (
     sr_progress REAL NOT NULL
 ) STRICT;
 
+CREATE TABLE capture_observations (
+    capture_id TEXT NOT NULL CHECK (length(trim(capture_id)) > 0),
+    player_id INTEGER NOT NULL REFERENCES players(player_id),
+    PRIMARY KEY (capture_id, player_id)
+) STRICT;
+
 CREATE INDEX idx_events_time ON events(event_at, event_id);
 CREATE INDEX idx_participations_player ON event_participations(player_id, event_id);
 CREATE INDEX idx_rating_snapshots_player_time ON rating_snapshots(player_id, observed_at);
 
 -- +goose Down
+DROP TABLE capture_observations;
 DROP TABLE rating_snapshots;
 DROP TABLE session_results;
 DROP TABLE event_participations;
