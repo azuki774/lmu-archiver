@@ -28,8 +28,8 @@ and
 [technical notes](https://github.com/MarteauPiqueurdu11/LMU-Central/blob/main/docs/notes-techniques.md).
 These are implementation references, not runtime dependencies.
 
-See the [workflow](docs/workflow.md) / [ワークフロー](docs/workflow.ja.md) for the
-protocol, prerequisites, credential handling, and planned data-processing flow.
+See the [workflow](docs/workflow.md) / [ワークフロー](docs/workflow.ja.md) for an
+overview of the authentication-to-archiving flow.
 
 This project is independent and is not affiliated with Le Mans Ultimate,
 Studio 397, Motorsport Games, or the referenced tools.
@@ -59,8 +59,8 @@ make test
 
 Replace the example IP with your LMU PC's address. On success, `auth` prints only
 `Authentication succeeded.` and discards the in-memory session on exit. It does
-not print or save credentials for a later invocation. See the workflow for
-connection prerequisites and the port to use.
+not print or save credentials for a later invocation. LMU must be running; set
+`--lmu-url` to the REST API address it listens on.
 
 Tests use local HTTP servers and do not contact LMU or RaceOS.
 
