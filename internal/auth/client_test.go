@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/azuki774/lmu-archiver/internal/httpclient"
 )
 
 func TestInvalidTicketStopsBeforeBackend(t *testing.T) {
@@ -24,7 +26,7 @@ func TestInvalidTicketStopsBeforeBackend(t *testing.T) {
 				calls.Add(1)
 			}))
 			defer backend.Close()
-			client, err := NewClient(lmu.URL)
+			client, err := NewClient(lmu.URL, httpclient.New())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -63,7 +65,7 @@ func TestAuthenticationFailureDoesNotExposeCredentials(t *testing.T) {
 				fmt.Fprint(w, tc.body)
 			}))
 			defer backend.Close()
-			client, err := NewClient(lmu.URL)
+			client, err := NewClient(lmu.URL, httpclient.New())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -103,7 +105,7 @@ func TestRedirectDoesNotForwardCredentials(t *testing.T) {
 			defer lmu.Close()
 			backend := httptest.NewServer(http.HandlerFunc(redirect))
 			defer backend.Close()
-			client, err := NewClient(lmu.URL)
+			client, err := NewClient(lmu.URL, httpclient.New())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -126,7 +128,7 @@ func TestCancelInFlightTicketRequest(t *testing.T) {
 		<-r.Context().Done()
 	}))
 	defer lmu.Close()
-	client, err := NewClient(lmu.URL)
+	client, err := NewClient(lmu.URL, httpclient.New())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +174,7 @@ func TestCancelWhileDecodingTicketResponse(t *testing.T) {
 				<-r.Context().Done()
 			}))
 			defer lmu.Close()
-			client, err := NewClient(lmu.URL)
+			client, err := NewClient(lmu.URL, httpclient.New())
 			if err != nil {
 				t.Fatal(err)
 			}

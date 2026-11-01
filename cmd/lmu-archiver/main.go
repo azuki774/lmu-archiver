@@ -10,6 +10,7 @@ import (
 	"os/signal"
 
 	"github.com/azuki774/lmu-archiver/internal/auth"
+	"github.com/azuki774/lmu-archiver/internal/httpclient"
 )
 
 func main() {
@@ -52,7 +53,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "Error: auth does not accept positional arguments")
 		return 2
 	}
-	client, err := auth.NewClient(*lmuURL)
+	httpClient := httpclient.New()
+	defer httpClient.CloseIdleConnections()
+	client, err := auth.NewClient(*lmuURL, httpClient)
 	if err != nil {
 		fmt.Fprintln(stderr, "Error:", err)
 		return 2

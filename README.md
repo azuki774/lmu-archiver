@@ -34,11 +34,34 @@ overview of the authentication-to-archiving flow.
 This project is independent and is not affiliated with Le Mans Ultimate,
 Studio 397, Motorsport Games, or the referenced tools.
 
+## Considerate API usage
+
+Keeping the load on LMU and RaceOS as low as practical takes priority over
+retrieval speed. The aim is to avoid burdening the services we depend on, not to
+maximize request throughput.
+
+The CLI shares one HTTP client across both services to prevent concentrated
+access from concurrent callers, after failures, or when resuming after idle time.
+As a concrete safeguard, each transport attempt is followed by at least one second
+before the next request, measured from response headers or a communication error.
+Idle time does not accumulate permission for a burst, and failed attempts also
+consume the cooldown. HTTP errors, including 429, are not automatically retried.
+
+Waiting is cancelable and counts toward the client's 20-second request timeout.
+The existing 1.2-second authentication-specific wait remains. New API clients must
+receive the same HTTP client to participate in this protection. Response body
+consumption does not hold the shared gate.
+
+Separate CLI processes, underlying transport retries, and server arrival timing
+are outside this guarantee. This safeguard does not eliminate service load or
+guarantee compliance with service-side usage limits.
+
 ## Project layout
 
 ```text
 cmd/lmu-archiver/   CLI entry point
 internal/auth/     LMU ticket acquisition and RaceOS authentication
+internal/httpclient/ Shared HTTP client and API request cooldown
 bin/               Local build output (ignored except for .gitkeep)
 go.mod             Go module definition
 Makefile           Local build, run, and test commands
