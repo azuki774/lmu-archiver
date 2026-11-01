@@ -29,24 +29,16 @@ type Client struct {
 	raceOSURL string
 }
 
-// NewClient configures a direct connection to the local LMU REST API.
+// NewClient uses the supplied shared HTTP client to contact LMU and RaceOS.
 // The base URL must be an HTTP origin, without credentials, path, query, or fragment.
-func NewClient(lmuURL string) (*Client, error) {
+func NewClient(lmuURL string, httpClient *http.Client) (*Client, error) {
 	u, err := url.Parse(lmuURL)
 	if err != nil || u.Scheme != "http" || u.Hostname() == "" || u.User != nil ||
 		(u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
 		return nil, errors.New("LMU URL must be an HTTP origin such as http://127.0.0.1:6937")
 	}
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.Proxy = nil
 	return &Client{
-		http: &http.Client{
-			Transport: transport,
-			Timeout:   20 * time.Second,
-			CheckRedirect: func(*http.Request, []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
-		},
+		http:      httpClient,
 		lmuURL:    strings.TrimRight(lmuURL, "/"),
 		raceOSURL: raceOSURL,
 	}, nil
