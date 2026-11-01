@@ -54,6 +54,16 @@ not changed. Moving a file does not update its stored path.
 
 ## Tables and relationships
 
+| Table | Stored data | Purpose |
+| --- | --- | --- |
+| `players` | Steam ID, RaceOS player ID, and display name | Identify tracked accounts by Steam ID rather than display name. |
+| `events` | Event timestamp, title, type, track, split, and source-file path | Store shared event information; update existing event IDs when results are reimported. |
+| `event_participations` | A player's name, car class, result-reported ranks, and adjustment indicators for an event | Link a tracked player to an event and keep player-specific information separate from shared event metadata. Adjustment indicators are not exact ELO/SR deltas. |
+| `session_results` | Positions, grid positions, laps, lap/finish times, and finish status | Store the tracked player's performance in each practice, qualifying, warmup, or race block. |
+| `rating_snapshots` | Observation timestamp and the eight exact DR/SR value fields | Store the first observation and subsequent value changes, independently of individual events. |
+| `capture_observations` | Processed `(capture_id, player_id)` pairs | Prevent replaying the same capture's rating processing, including captures whose unchanged rating was skipped. This does not suppress result reimports or compare DR/SR values. |
+| `goose_db_version` (goose-managed) | Applied migration versions | Track the database schema version; not an application-data table. |
+
 ```text
 players ──< event_participations >── events
                  │
@@ -153,10 +163,18 @@ one microsecond is rejected rather than rounded.
 | `dr_tier`, `sr_tier` | INTEGER | NOT NULL; observed rank tiers |
 | `dr_progress`, `sr_progress` | REAL | NOT NULL; observed rank progress |
 
-New captures append observations even when their values are unchanged. Replaying
-the same capture does not append an observation or change its timestamp. A present
-zero differs from a missing field; sync rejects missing required identity/rating
-fields. There is no event foreign key or per-race delta.
+An observation is inserted only when there is no preceding stored observation
+for the player, or at least one of the eight DR/SR value fields differs.
+Comparison uses the latest `(observed_at, snapshot_id)` at or before the incoming
+observation timestamp, so historical replays do not compare against future data.
+Numeric comparisons are exact; source/path/timestamp changes alone do not count.
+A return to a previously seen value is saved if it differs from the preceding
+value. Existing rows are not compacted or deleted.
+
+Unchanged values leave the stored `observed_at` untouched. These rows describe
+observed changes, not the last time a rating was checked. A present zero differs
+from a missing field; sync rejects missing required identity/rating fields.
+There is no event foreign key or per-race delta.
 
 ### `capture_observations`
 
@@ -164,10 +182,10 @@ Defined in the initial migration `00001_archive.sql`. Primary key:
 **`(capture_id, player_id)`**. `capture_id` is nonblank TEXT from the capture's
 manifest; `player_id` references `players(player_id)`.
 
-The marker is inserted in the same transaction as results and the observation.
-An existing marker suppresses only the duplicate observation; result rows are
-still reimported. Capture IDs must remain stable when backing up or relocating
-captures.
+The marker is inserted in the same transaction as results and any changed
+rating, including captures whose unchanged rating needs no snapshot.
+An existing marker suppresses only rating processing; result rows are still
+reimported. Capture IDs must remain stable when backing up or relocating captures.
 
 ## Indexes
 
@@ -328,11 +346,13 @@ are retained. An empty array or null results page imports zero events.
 
 Online sync saves a complete capture before ingestion. The sanitized profile and
 its original observation timestamp are linked by a versioned manifest. One DB
-transaction imports events, records the capture marker, and inserts its rating
-observation if the marker is new. Failure rolls back all three; replay cannot
-consume the marker without saving the observation. Results-only files import no
-ratings. The filesystem and SQLite do not share a transaction: a DB failure
-retains the capture for `sync --skip-download --input ...`.
+transaction imports events and records the capture marker. A new capture adds a
+rating only if its values differ from the preceding stored observation.
+The marker is committed even if no snapshot is needed, so replay cannot later
+fabricate an observation for that capture. Failures roll back the entire import,
+including the marker. Results-only files import no ratings. The filesystem and
+SQLite do not share a transaction: a DB failure retains the capture for
+`sync --skip-download --input ...`.
 
 ## Migrations and backups
 

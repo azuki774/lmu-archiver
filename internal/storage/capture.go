@@ -5,8 +5,8 @@ import (
 	"errors"
 )
 
-// ImportCapture replaces event data and records a capture's observation together.
-// A stable capture ID prevents replay from fabricating another rating observation.
+// ImportCapture replaces event data and records changed ratings together.
+// A stable capture ID marks even unchanged observations as processed.
 func (s *Store) ImportCapture(ctx context.Context, player Player, events []EventData, captureID string, rating *RatingSnapshot) (bool, error) {
 	if rating != nil && captureID == "" {
 		return false, errors.New("rating capture requires an ID")
@@ -34,10 +34,10 @@ func (s *Store) ImportCapture(ctx context.Context, player Player, events []Event
 			return false, err
 		}
 		if count != 0 {
-			if err := recordRating(ctx, tx, playerID, *rating); err != nil {
+			recorded, err = recordRating(ctx, tx, playerID, *rating)
+			if err != nil {
 				return false, err
 			}
-			recorded = true
 		}
 	}
 	if err := tx.Commit(); err != nil {

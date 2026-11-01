@@ -144,8 +144,8 @@ func importEvents(ctx context.Context, tx *sql.Tx, playerID int64, events []Even
 	return nil
 }
 
-// RecordRating appends an observation; equal values still retain their real
-// observation time. A snapshot is never backdated to a race automatically.
+// RecordRating records a change from the preceding stored DR/SR values.
+// A snapshot is never backdated to a race automatically.
 func (s *Store) RecordRating(ctx context.Context, player Player, r RatingSnapshot) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -156,24 +156,41 @@ func (s *Store) RecordRating(ctx context.Context, player Player, r RatingSnapsho
 	if err != nil {
 		return err
 	}
-	if err := recordRating(ctx, tx, playerID, r); err != nil {
+	if _, err := recordRating(ctx, tx, playerID, r); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
-func recordRating(ctx context.Context, tx *sql.Tx, playerID int64, r RatingSnapshot) error {
+func recordRating(ctx context.Context, tx *sql.Tx, playerID int64, r RatingSnapshot) (bool, error) {
 	if r.ObservedAt.IsZero() || strings.TrimSpace(r.Source) == "" {
-		return errors.New("rating observation requires timestamp and source")
+		return false, errors.New("rating observation requires timestamp and source")
 	}
 	for _, v := range []float64{r.DRElo, r.DRProgress, r.SRRating, r.SRProgress} {
 		if math.IsNaN(v) || math.IsInf(v, 0) {
-			return errors.New("rating values must be finite")
+			return false, errors.New("rating values must be finite")
 		}
 	}
-	_, err := tx.ExecContext(ctx, `INSERT INTO rating_snapshots(player_id,observed_at,source,raw_path,dr_elo,dr_rank,dr_tier,dr_progress,sr_rating,sr_rank,sr_tier,sr_progress)
+	// Compare at the observation time, not import time: replaying an older
+	// capture must not compare its values against a future rating.
+	var previous RatingSnapshot
+	err := tx.QueryRowContext(ctx, `SELECT dr_elo,dr_rank,dr_tier,dr_progress,sr_rating,sr_rank,sr_tier,sr_progress
+ FROM rating_snapshots WHERE player_id=? AND observed_at<=?
+ ORDER BY observed_at DESC,snapshot_id DESC LIMIT 1`, playerID, r.ObservedAt.UnixMicro()).Scan(
+		&previous.DRElo, &previous.DRRank, &previous.DRTier, &previous.DRProgress,
+		&previous.SRRating, &previous.SRRank, &previous.SRTier, &previous.SRProgress)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return false, err
+	}
+	if err == nil && previous.DRElo == r.DRElo && previous.DRRank == r.DRRank &&
+		previous.DRTier == r.DRTier && previous.DRProgress == r.DRProgress &&
+		previous.SRRating == r.SRRating && previous.SRRank == r.SRRank &&
+		previous.SRTier == r.SRTier && previous.SRProgress == r.SRProgress {
+		return false, nil
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO rating_snapshots(player_id,observed_at,source,raw_path,dr_elo,dr_rank,dr_tier,dr_progress,sr_rating,sr_rank,sr_tier,sr_progress)
  VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, playerID, r.ObservedAt.UnixMicro(), r.Source, r.RawPath, r.DRElo, r.DRRank, r.DRTier, r.DRProgress, r.SRRating, r.SRRank, r.SRTier, r.SRProgress)
-	return err
+	return err == nil, err
 }
 
 const ratingColumns = `snapshot_id,player_id,observed_at,source,raw_path,dr_elo,dr_rank,dr_tier,dr_progress,sr_rating,sr_rank,sr_tier,sr_progress`
