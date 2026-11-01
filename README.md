@@ -185,6 +185,8 @@ GitHub Actions runs two independent jobs on every pull request, including update
 - **Mock E2E** runs `make test-e2e`
   (`go test -tags=e2e -count=1 -timeout=2m -v ./e2e`).
 
+Both jobs use `ubuntu-slim`; third-party actions are pinned to full commit SHAs.
+
 The E2E suite builds and executes the real CLI against local HTTP servers on
 ephemeral loopback ports, reusing `internal/mockapi` for LMU and RaceOS. It checks
 successful authentication, LMU failure, RaceOS rejection, and malformed RaceOS
