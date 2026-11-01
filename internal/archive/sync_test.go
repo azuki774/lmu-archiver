@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -167,4 +168,80 @@ func TestFailedDownloadOrInvalidLaterEventDoesNotImport(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEverySyncRefreshesOldResultsWithoutDuplicatingUnchangedRating(t *testing.T) {
+	ctx := context.Background()
+	lmu := httptest.NewServer(mockapi.NewLMUHandler())
+	defer lmu.Close()
+	mock := mockapi.NewRaceOSHandler()
+	var mu sync.Mutex
+	corrected := false
+	var requested []string
+	raceOS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/results" {
+			mock.ServeHTTP(w, r)
+			return
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		page := r.URL.Query().Get("page")
+		requested = append(requested, page)
+		if page == "4" {
+			fmt.Fprint(w, "null")
+			return
+		}
+		var rows []json.RawMessage
+		for i := range 20 {
+			position := "2"
+			if corrected && page == "3" && i == 19 {
+				position = "1"
+			}
+			rows = append(rows, json.RawMessage(fmt.Sprintf(`{"eventId":"event-%s-%02d","date":"2020-01-01T00:00:00Z","eventType":"daily","drivers":[{"steamId":"mock-steam-id","name":"Mock Driver"}],"race":{"sessionNo":"1","races":[{"results":[{"steamId":"mock-steam-id","position":%q}]}]}}`, page, i, position)))
+		}
+		_ = json.NewEncoder(w).Encode(rows)
+	}))
+	defer raceOS.Close()
+	dir := t.TempDir()
+	options := SyncOptions{DBPath: filepath.Join(dir, "archive.sqlite3"), RawDir: filepath.Join(dir, "raw"), LMUURL: lmu.URL, RaceOSURL: raceOS.URL, EventTypes: []string{"daily"}}
+	first, err := Sync(ctx, options)
+	if err != nil || !first.RatingRecorded {
+		t.Fatalf("first sync: %+v %v", first, err)
+	}
+	mu.Lock()
+	corrected = true
+	requested = nil
+	mu.Unlock()
+	second, err := Sync(ctx, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	actualPages := strings.Join(requested, ",")
+	mu.Unlock()
+	if actualPages != "1,2,3,4" || second.Events != 60 || second.RatingRecorded {
+		t.Fatalf("did not refresh full history with unchanged rating skipped: pages=%s result=%+v", actualPages, second)
+	}
+	store, err := storage.OpenReadOnly(ctx, options.DBPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	races, err := store.LatestRaces(ctx, "mock-steam-id", 60)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, race := range races {
+		if race.Event.ID == "event-3-19" {
+			if *race.Results[0].Position != 1 {
+				t.Fatal("old result correction was not imported")
+			}
+			ratings := readRatings(t, options.DBPath)
+			if len(ratings) != 1 {
+				t.Fatalf("unchanged profile duplicated rating: %+v", ratings)
+			}
+			return
+		}
+	}
+	t.Fatal("old event missing")
 }

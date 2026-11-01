@@ -5,9 +5,9 @@ online racing data under your own control.
 
 ## Status
 
-`sync` authenticates with RaceOS (`raceos.gg`), downloads race results and the
-current DR/SR profile, saves credential-free JSON captures, and imports them into
-SQLite. `sync --skip-download` replays saved inputs without network access.
+`sync` authenticates with RaceOS (`raceos.gg`), downloads all race results and the
+current DR/SR profile, saves credential-free JSON captures, and imports results
+and changed ratings into SQLite. `sync --skip-download` replays saved inputs without network access.
 `serve` exposes the archive as a read-only JSON API for future frontends.
 Local mocks support the complete synchronization flow without either service.
 
@@ -200,7 +200,8 @@ The repository-root `data/` directory is ignored by Git.
 
 `races` and `ratings` show tables by default; `--json` returns JSON arrays.
 `sync --json` prints a summary with `steamId`, `capturePath`, `events`, and
-`ratingRecorded` (whether a new observation was inserted). Progress/errors use
+`ratingRecorded` (whether a new observation was inserted). `events` counts events
+downloaded/imported in this capture, not all events in the archive. Progress/errors use
 stderr, separate from stdout. Exit codes: 0 success, 1 operational failure,
 2 invalid command arguments or configuration.
 
@@ -209,15 +210,39 @@ are also accepted. The default range is the last 30 days. Specify `--steam-id`
 or configure `steamId` when tracking multiple players.
 
 Synchronization requests `daily,specialevent` by default, using 20 results per
-page until an empty array or null response. `--event-types` overrides the
-comma-separated list. `championship` can be explicitly requested, but its API
-support is unverified: an empty response does not prove support. Repeated pages
-fail instead of looping indefinitely. Duplicate event IDs are imported once,
-using the first occurrence.
+page. `--event-types` overrides the comma-separated list. `championship` can be
+explicitly requested, but its API support is unverified: an empty response does
+not prove support. Repeated pages fail instead of looping indefinitely.
+Duplicate event IDs are imported once, using the first occurrence.
+
+### Result refresh and rating changes
+
+Every online sync fetches all pages until an empty array or null response,
+including previously stored events. Reimporting those events reflects historical
+corrections on the next successful sync if the service returns them.
+Events missing from API responses are not deleted from the archive.
+
+DR/SR snapshots are saved on the first observation and when any of these values
+differs from the same player's preceding stored observation:
+
+- DR ELO, rank, tier, and progress.
+- SR rating, rank, tier, and progress.
+
+Comparison is exact, without rounding or tolerance. Source-file paths and other
+metadata do not count as rating changes. A return to an older value (`A → B → A`)
+is still a change, not a duplicate. Older captures are compared at their original
+observation time, never against future ratings.
+
+The database therefore records observed rating changes, not every successful
+check. An unchanged value does not add a snapshot or advance its `observedAt`.
+`referenceRating.observedAt` remains the time of the stored change observation,
+not the last time the value was checked. Existing snapshots are not removed.
+DR/SR still comes from each authentication response; this reduces DB inserts,
+not API requests.
 
 All results are validated before data is committed. An event missing your
 uniquely identified driver or all of your session results fails the import.
-Events and the current rating observation are committed in one transaction.
+Events, the capture marker, and any changed rating are committed in one transaction.
 Reimport replaces your sessions without duplicating events or deleting another
 tracked player's results. Other participants remain in the original JSON.
 
@@ -241,12 +266,12 @@ Each online sync creates a private directory containing:
 The manifest is written after acquisition finishes. Failed downloads retain
 partial files for inspection, report their location, and do not import data.
 A DB failure retains the complete capture; retry it with `--skip-download`.
-There are no automatic retries or incremental download/resume behavior.
+There are no automatic retries or interrupted-download resume behavior.
 
-Replay preserves the original rating timestamp and records that capture's
-observation at most once per player. An unchanged rating from a **new** online
-capture is still a new observation. Keep captures immutable and retain their IDs
-when moving or backing them up. Relative manifest paths allow replay into a new
+Replay preserves the original rating timestamp and processes that capture's
+rating at most once per player, even when unchanged values are skipped.
+Results are still reimported. Keep captures immutable and retain their IDs when
+moving or backing them up. Relative manifest paths allow replay into a new
 database after moving the capture directory.
 
 New database/JSON files use mode `0600`; new directories use `0700`.
