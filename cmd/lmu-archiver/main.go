@@ -39,6 +39,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("auth", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	lmuURL := flags.String("lmu-url", "http://127.0.0.1:6937", "LMU REST API base URL (HTTP)")
+	raceOSURL := flags.String("raceos-url", "https://raceos.gg", "RaceOS API base URL (HTTP or HTTPS; use only trusted servers)")
 	flags.Usage = func() {
 		fmt.Fprintln(flags.Output(), "Usage: lmu-archiver auth [flags]")
 		flags.PrintDefaults()
@@ -55,7 +56,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	httpClient := httpclient.New()
 	defer httpClient.CloseIdleConnections()
-	client, err := auth.NewClient(*lmuURL, httpClient)
+	client, err := auth.NewClient(*lmuURL, *raceOSURL, httpClient)
 	if err != nil {
 		fmt.Fprintln(stderr, "Error:", err)
 		return 2
