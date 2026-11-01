@@ -514,6 +514,15 @@ docker run --rm lmu-archiver auth check --lmu-url http://192.0.2.10:6937
 
 Inside a container, `127.0.0.1` refers to the container, not the LMU PC.
 
+GitHub Actions builds both images for pull requests without publishing them.
+Pushes to `master` publish `ghcr.io/azuki774/lmu-archiver` and
+`ghcr.io/azuki774/lmu-archiver-mock` using the first seven characters of the
+source commit as their shared tag. A manual workflow run on `master` can
+publish a specified full commit SHA only if it is an ancestor of `master`.
+Pull request builds use the head commit, not GitHub's synthetic merge commit.
+Image tags are not an access control: make packages public or provision
+registry pull credentials before using them from a cluster.
+
 ### Mock API container
 
 The separate Alpine image runs both mock servers in one process, with the

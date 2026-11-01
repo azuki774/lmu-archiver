@@ -1,0 +1,137 @@
+name: Build and publish containers
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Full commit SHA reachable from master
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      revision: ${{ steps.revision.outputs.revision }}
+      tag: ${{ steps.revision.outputs.tag }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          ref: master
+          fetch-depth: 0
+      - name: Select source revision
+        id: revision
+        env:
+          REVISION: ${{ inputs.revision || github.event.pull_request.head.sha || github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]]
+          if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
+            [[ "$REF" == refs/heads/master ]]
+            git merge-base --is-ancestor "$REVISION" HEAD
+          fi
+          echo "revision=$REVISION" >> "$GITHUB_OUTPUT"
+          echo "tag=${REVISION:0:7}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: lmu-archiver
+            dockerfile: Dockerfile
+          - image: lmu-archiver-mock
+            dockerfile: Dockerfile.mock
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.metadata.outputs.revision }}
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: ${{ matrix.image }}:ci
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.metadata.outputs.revision }}
+      - name: Check CLI image
+        if: matrix.image == 'lmu-archiver'
+        run: docker run --rm lmu-archiver:ci --help
+      - name: Check mock API image
+        if: matrix.image == 'lmu-archiver-mock'
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name lmu-mock -p 127.0.0.1:16937:6937 -p 127.0.0.1:18081:8081 lmu-archiver-mock:ci
+          trap 'docker rm -f lmu-mock >/dev/null' EXIT
+          attempt=0
+          until curl --fail --silent http://127.0.0.1:16937/rest/profile/getAuthSessionTicket >/dev/null; do
+            ((attempt+=1))
+            if ((attempt >= 20)); then
+              docker logs lmu-mock
+              exit 1
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:18081/authenticate \
+            -H 'Content-Type: application/json' \
+            -d '{"token":"mock-steam-ticket","game":"lmu","platform":"steam"}' >/dev/null
+          curl --fail --silent 'http://127.0.0.1:18081/api/v1/results?eventType=daily&page=1&take=20' \
+            -H 'Game-Authorization: Bearer mock-access-token' >/dev/null
+
+  publish:
+    needs: [metadata, build]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: lmu-archiver
+            dockerfile: Dockerfile
+          - image: lmu-archiver-mock
+            dockerfile: Dockerfile.mock
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.metadata.outputs.revision }}
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/azuki774/${{ matrix.image }}:${{ needs.metadata.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.metadata.outputs.revision }}
