@@ -7,7 +7,16 @@ the application queries are implemented in [storage](../internal/storage/store.g
 
 ## Database configuration
 
-- Default file: `data/archive.sqlite3`; archive commands accept `--db`.
+- Default file: `./data/archive.sqlite3`; archive commands accept `--db`.
+  Profile files default to `./data/raw`, configurable with `--raw-dir`.
+  Relative paths are resolved against the process's current working directory,
+  not the executable's directory. Neither default is hard-coded to `/data`.
+- The repository's `/data/` ignore rule excludes its root-level `data/`
+  directory. The leading slash anchors the Git pattern to the repository root;
+  it does not select an absolute storage path.
+- The working directory must be writable by the process user. In a container,
+  configure a writable working directory or override the paths to a writable
+  mount; a relative path does not itself grant filesystem permissions.
 - Driver: `modernc.org/sqlite`, through Go's `database/sql`; no external SQLite
   executable is required by the application.
 - All five data tables use `STRICT` typing, requiring SQLite 3.37.0 or later for

@@ -163,8 +163,11 @@ and
 
 The archive uses [goose](https://github.com/pressly/goose) SQL migrations embedded
 in the CLI and a pure-Go SQLite driver; no external goose or SQLite executable
-is required. Every archive command creates/migrates `data/archive.sqlite3` by
-default. Override it with `--db`. Local `data/` is ignored by Git.
+is required. Every archive command creates/migrates `./data/archive.sqlite3` by
+default, relative to the process's current working directory, not the executable.
+Profiles default to `./data/raw`. Override these with `--db` and `--raw-dir`.
+The repository-root `data/` directory is ignored by Git; the `/data/` ignore
+pattern is repository-relative, not a hard-coded filesystem destination.
 
 ```sh
 # Create or upgrade an archive explicitly.
