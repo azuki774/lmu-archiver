@@ -165,6 +165,7 @@ make build
 make run ARGS=--help
 ./bin/lmu-archiver auth --lmu-url http://192.0.2.10:6937
 make test
+make test-e2e
 ```
 
 Replace the example IP with your LMU PC's address. On success, `auth` prints only
@@ -175,6 +176,23 @@ LMU must be running; set `--lmu-url` to the REST API address it listens on.
 server: the CLI sends the Steam session ticket to that origin.
 
 Tests use local HTTP servers and do not contact LMU or RaceOS.
+
+### Pull request checks
+
+GitHub Actions runs two independent jobs on every pull request, including updates:
+
+- **Go tests** runs `make test` (`go test ./...`).
+- **Mock E2E** runs `make test-e2e`
+  (`go test -tags=e2e -count=1 -timeout=2m -v ./e2e`).
+
+The E2E suite builds and executes the real CLI against local HTTP servers on
+ephemeral loopback ports, reusing `internal/mockapi` for LMU and RaceOS. It checks
+successful authentication, LMU failure, RaceOS rejection, and malformed RaceOS
+responses, including exit status, credential-safe output, and no RaceOS request
+after LMU failure. Production HTTP cooldowns remain enabled.
+
+No running game, Steam account, external API access, or secrets are required.
+The `e2e` build tag keeps these subprocess scenarios separate from ordinary tests.
 
 ### Local API mocks
 
