@@ -17,11 +17,21 @@ import (
 	"github.com/azuki774/lmu-archiver/internal/storage"
 )
 
+func copyMockData(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.CopyFS(dir, os.DirFS("../../testdata/mock-api")); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
 func TestOnlineCaptureAndOfflineReplay(t *testing.T) {
 	ctx := context.Background()
-	lmu := httptest.NewServer(mockapi.NewLMUHandler())
+	dataDir := copyMockData(t)
+	lmu := httptest.NewServer(mockapi.NewLMUHandler(dataDir))
 	defer lmu.Close()
-	mock := mockapi.NewRaceOSHandler()
+	mock := mockapi.NewRaceOSHandler(dataDir)
 	raceOS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/authenticate" {
 			recorder := httptest.NewRecorder()
@@ -44,7 +54,7 @@ func TestOnlineCaptureAndOfflineReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Events != 1 || !result.RatingRecorded || result.SteamID != "mock-steam-id" {
+	if result.Events != 25 || !result.RatingRecorded || result.SteamID != "mock-steam-id" {
 		t.Fatalf("unexpected sync: %+v", result)
 	}
 	raw, err := os.ReadFile(filepath.Join(result.CapturePath, "profile.json"))
@@ -84,12 +94,12 @@ func TestOnlineCaptureAndOfflineReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	races, err := store.LatestRaces(ctx, result.SteamID, 10)
+	races, err := store.LatestRaces(ctx, result.SteamID, 30)
 	store.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(races) != 1 || *races[0].Results[0].Position != 2 || *races[0].Results[0].BestLapUS != 99_835_000 {
+	if len(races) != 25 || races[0].Event.ID != "mock-event-001" || races[20].Event.ID != "mock-event-021" || races[24].Event.ID != "mock-event-025" || *races[0].Results[0].Position != 2 || *races[0].Results[0].BestLapUS != 99_835_000 {
 		t.Fatalf("wrong archived own results: %+v", races)
 	}
 	// A portable capture can rebuild another database without backdating to replay.
@@ -125,9 +135,10 @@ func readRatings(t *testing.T, path string) []storage.RatingSnapshot {
 func TestFailedDownloadOrInvalidLaterEventDoesNotImport(t *testing.T) {
 	for _, mode := range []string{"invalid later event", "repeated page", "rate limited"} {
 		t.Run(mode, func(t *testing.T) {
-			lmu := httptest.NewServer(mockapi.NewLMUHandler())
+			dataDir := copyMockData(t)
+			lmu := httptest.NewServer(mockapi.NewLMUHandler(dataDir))
 			defer lmu.Close()
-			mock := mockapi.NewRaceOSHandler()
+			mock := mockapi.NewRaceOSHandler(dataDir)
 			raceOS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/authenticate" {
 					mock.ServeHTTP(w, r)
@@ -172,9 +183,10 @@ func TestFailedDownloadOrInvalidLaterEventDoesNotImport(t *testing.T) {
 
 func TestEverySyncRefreshesOldResultsWithoutDuplicatingUnchangedRating(t *testing.T) {
 	ctx := context.Background()
-	lmu := httptest.NewServer(mockapi.NewLMUHandler())
+	dataDir := copyMockData(t)
+	lmu := httptest.NewServer(mockapi.NewLMUHandler(dataDir))
 	defer lmu.Close()
-	mock := mockapi.NewRaceOSHandler()
+	mock := mockapi.NewRaceOSHandler(dataDir)
 	var mu sync.Mutex
 	corrected := false
 	var requested []string

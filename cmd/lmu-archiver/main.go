@@ -44,7 +44,8 @@ Commands:
   db migrate  Create or upgrade the archive schema
 
 Use sync --skip-download --input PATH to replay a capture or results JSON offline.
-Run a command with --help for its options. Flags override the optional JSON config.`)
+Run a command with --help for its options.
+URL precedence: flags > RACEOS_URL / LMU_INT_API > JSON config > defaults.`)
 }
 
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -56,6 +57,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	cfg, args, err := loadConfig(args)
 	if err != nil {
 		return fail(err, 2)
+	}
+	if value, ok := os.LookupEnv("LMU_INT_API"); ok {
+		cfg.LMUURL = value
+	}
+	if value, ok := os.LookupEnv("RACEOS_URL"); ok {
+		cfg.RaceOSURL = value
 	}
 	if len(args) == 0 {
 		usage(stdout)
@@ -95,7 +102,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	flags.Usage = func() {
 		fmt.Fprintf(flags.Output(), "Usage: lmu-archiver %s [flags]\n", command)
 		flags.PrintDefaults()
-		fmt.Fprintln(flags.Output(), "  --config PATH\n        Optional JSON config; explicit flags override its values")
+		fmt.Fprintln(flags.Output(), "  --config PATH\n        Optional JSON config; URL precedence: flags > environment > config > defaults")
 	}
 	jsonOutput := false
 	skipDownload := false
@@ -123,8 +130,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		flags.BoolVar(&jsonOutput, "json", false, "Print JSON instead of a table")
 	}
 	if command == "sync" || command == "auth check" {
-		flags.StringVar(&cfg.LMUURL, "lmu-url", cfg.LMUURL, "LMU REST API HTTP origin")
-		flags.StringVar(&cfg.RaceOSURL, "raceos-url", cfg.RaceOSURL, "Trusted RaceOS HTTP(S) origin; receives the Steam ticket")
+		flags.StringVar(&cfg.LMUURL, "lmu-url", cfg.LMUURL, "LMU REST API HTTP origin (environment: LMU_INT_API)")
+		flags.StringVar(&cfg.RaceOSURL, "raceos-url", cfg.RaceOSURL, "Trusted RaceOS HTTP(S) origin; receives the Steam ticket (environment: RACEOS_URL)")
 	}
 	if command != "auth check" && command != "db migrate" {
 		flags.StringVar(&cfg.SteamID, "steam-id", cfg.SteamID, "Steam ID; inferred from authentication or a single-player archive")

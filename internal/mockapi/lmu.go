@@ -8,10 +8,10 @@ const steamTicket = "mock-steam-ticket"
 
 // NewLMUHandler returns a mux with the supported LMU routes registered.
 // Additional endpoints can be registered on the returned mux.
-func NewLMUHandler() *http.ServeMux {
+func NewLMUHandler(dataDir string) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /rest/profile/getAuthSessionTicket", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, `{"authSessionTicket":"`+steamTicket+`"}`)
+		writeJSONFile(w, dataDir, "lmu", "auth-session-ticket.json")
 	})
 	return mux
 }

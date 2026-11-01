@@ -27,6 +27,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	flags.SetOutput(stderr)
 	lmuAddress := flags.String("lmu-listen", "127.0.0.1:6937", "LMU mock listen address")
 	raceOSAddress := flags.String("raceos-listen", "127.0.0.1:8081", "RaceOS mock listen address")
+	dataDir := flags.String("data-dir", "data/mock-api", "Directory containing editable LMU and RaceOS response JSON")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -35,6 +36,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	if flags.NArg() != 0 {
 		fmt.Fprintln(stderr, "Error: mock-apis does not accept positional arguments")
+		return 2
+	}
+	info, err := os.Stat(*dataDir)
+	if err != nil || !info.IsDir() {
+		fmt.Fprintln(stderr, "Error: --data-dir must name an existing directory")
 		return 2
 	}
 	lmuListener, err := net.Listen("tcp", *lmuAddress)
@@ -50,8 +56,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	defer raceOSListener.Close()
 
-	lmu := &http.Server{Handler: mockapi.NewLMUHandler(), ReadHeaderTimeout: 5 * time.Second}
-	raceOS := &http.Server{Handler: mockapi.NewRaceOSHandler(), ReadHeaderTimeout: 5 * time.Second}
+	lmu := &http.Server{Handler: mockapi.NewLMUHandler(*dataDir), ReadHeaderTimeout: 5 * time.Second}
+	raceOS := &http.Server{Handler: mockapi.NewRaceOSHandler(*dataDir), ReadHeaderTimeout: 5 * time.Second}
 	results := make(chan error, 2)
 	go func() { results <- lmu.Serve(lmuListener) }()
 	go func() { results <- raceOS.Serve(raceOSListener) }()
