@@ -1,6 +1,6 @@
 GO ?= go
 
-.PHONY: build run mock test test-e2e
+.PHONY: build run mock mock-init test test-e2e
 
 build:
 	$(GO) build -trimpath -o bin/ ./cmd/lmu-archiver ./cmd/mock-apis
@@ -10,6 +10,11 @@ run:
 
 mock:
 	$(GO) run ./cmd/mock-apis $(ARGS)
+
+# Populate data/mock-api/ with test data for the mock APIs.
+mock-init:
+	mkdir -p data/mock-api
+	cp -R testdata/mock-api/. data/mock-api/
 
 test:
 	$(GO) test ./...

@@ -72,6 +72,7 @@ internal/query/     Shared CLI and HTTP query operations
 internal/api/       Read-only HTTP API
 internal/storage/    SQLite persistence and temporal queries
 db/migrations/      Embedded goose SQL migrations
+testdata/mock-api/   Synthetic JSON response templates for mocks and tests
 bin/                 Local build output (ignored except for .gitkeep)
 go.mod               Go module definition
 Makefile             Local build, run, mock, and test commands
@@ -80,26 +81,29 @@ Dockerfile           Multi-stage CLI container build
 
 ## Local environment
 
-Copy the reference configuration and adjust the LMU internal API URL for your
+Copy the reference configuration and adjust the LMU and RaceOS origins for your
 environment:
 
 ```sh
 cp .env.sample .env
 ```
 
-The sample uses the local Windows API address:
+The sample uses the local Windows API address and production RaceOS:
 
 ```dotenv
 LMU_INT_API="http://127.0.0.1:6937/"
+RACEOS_URL="https://raceos.gg"
 ```
 
-`.env` is ignored by Git; `.env.sample` is the shared reference. The current CLI
-does not load `.env` or use `LMU_INT_API` automatically. After building, load your
-trusted local file in a POSIX shell and pass its value explicitly:
+The CLI reads exported `LMU_INT_API` and `RACEOS_URL` environment variables.
+`.env` is ignored by Git and is not loaded automatically; `.env.sample` is the
+shared reference. After building, export a trusted local file in a POSIX shell:
 
 ```sh
+set -a
 . ./.env
-./bin/lmu-archiver auth check --lmu-url "$LMU_INT_API"
+set +a
+./bin/lmu-archiver auth check
 ```
 
 ### Accessing the Windows API from another machine (at your own risk)
@@ -286,10 +290,15 @@ query examples, and migration/backup rules.
 An optional JSON configuration is loaded from
 `$XDG_CONFIG_HOME/lmu-archiver/config.json` (normally
 `~/.config/lmu-archiver/config.json` on Linux). Use `--config PATH` before the
-command or among its flags to select another file. Explicit flags override
-configuration, which overrides built-in defaults. Unknown keys, invalid JSON,
-and explicitly selected missing files are errors. Paths remain relative to the
-process's working directory, not the config file.
+command or among its flags to select another file. For API origins, precedence
+is **explicit flags > environment > JSON config > built-in defaults**:
+`LMU_INT_API` sets the LMU origin and `RACEOS_URL` sets the RaceOS origin used
+for both authentication and results. Other settings use flags > config > defaults.
+An explicitly empty or invalid origin fails online commands instead of falling
+back to production; offline imports and read-only queries do not validate or
+contact these origins. Connection failures never fall back to another origin.
+Unknown config keys, invalid JSON, and explicitly selected missing files are
+errors. Paths remain relative to the process's working directory, not the config file.
 
 ```json
 {
@@ -370,22 +379,38 @@ GitHub Actions runs two independent jobs on every pull request, including update
 
 Both jobs use `ubuntu-slim`; third-party actions are pinned to full commit SHAs.
 
-The E2E suite builds and executes the real CLI against local HTTP servers on
-ephemeral loopback ports, reusing `internal/mockapi` for LMU and RaceOS. It checks
-successful authentication, LMU failure, RaceOS rejection, and malformed RaceOS
-responses, including exit status, credential-safe output, and no RaceOS request
-after LMU failure. Production HTTP cooldowns remain enabled.
+Each E2E scenario copies `testdata/mock-api/` into its own temporary directory
+before starting its mock servers. Authentication scenarios execute the real CLI
+against ephemeral loopback HTTP servers and check success, LMU failure, RaceOS
+rejection, malformed responses, exit status, credential-safe output, and no
+RaceOS request after LMU failure.
+
+The synchronization scenario builds both executables, starts the standalone mock
+outside the repository, and supplies its origins through environment variables.
+It checks both results pages, exact saved values, a new race and an existing-event
+correction after editing the response files, updated DR/SR, and replay without
+duplicating observations or events. Production HTTP cooldowns remain enabled.
 
 No running game, Steam account, external API access, or secrets are required.
 The `e2e` build tag keeps these subprocess scenarios separate from ordinary tests.
 
 ### Local API mocks
 
-The mocks cover authentication with a fake profile and paginated race results.
-They use fixed fake credentials, make no upstream requests, and do not emulate
-Steam or token expiry. Daily results contain one race; other types return null.
+The standalone `mock-apis` process serves external JSON files. It needs no game,
+Steam account, CLI process, or upstream connection. Credential checks use the fixed
+fake ticket/token shown below; Steam and token expiry are not emulated.
 
-Start both servers in one terminal:
+Prepare an editable copy of the committed, entirely synthetic response templates:
+
+```sh
+make mock-init
+```
+
+This copies `testdata/mock-api/` into the ignored `data/mock-api/` directory.
+Running it again overwrites the baseline files; additional files are not removed.
+Keep edits in the working copy rather than changing shared test templates.
+
+Start both services in one terminal:
 
 ```sh
 make mock
@@ -393,24 +418,66 @@ make mock
 # RaceOS mock: http://127.0.0.1:8081
 ```
 
-In another terminal, build and run the real CLI against **both** mock origins:
+In another terminal:
 
 ```sh
 make build
+LMU_INT_API=http://127.0.0.1:6937 \
+RACEOS_URL=http://127.0.0.1:8081 \
 ./bin/lmu-archiver sync \
-  --lmu-url http://127.0.0.1:6937 \
-  --raceos-url http://127.0.0.1:8081
+  --db ./data/dev/archive.sqlite3 \
+  --raw-dir ./data/dev/raw
 ```
 
-`make build` also produces `bin/mock-apis`, which can be run directly.
-Stop the servers with Ctrl-C. Both listeners default to loopback; these are
-development servers without authentication or TLS, not services to expose.
-To avoid a port conflict with a running LMU instance, change the listeners and
-pass the matching origins to the CLI:
+Separate dev archive paths prevent dummy races from entering a real archive.
+`make build` also produces `bin/mock-apis`, runnable independently from any
+directory when given the response directory explicitly:
 
 ```sh
-make mock ARGS='--lmu-listen 127.0.0.1:16937 --raceos-listen 127.0.0.1:18081'
+/path/to/bin/mock-apis --data-dir /absolute/path/to/mock-data \
+  --lmu-listen 127.0.0.1:16937 \
+  --raceos-listen 127.0.0.1:18081
 ```
+
+Set `LMU_INT_API=http://127.0.0.1:16937` and
+`RACEOS_URL=http://127.0.0.1:18081` for those listeners. The alternative ports avoid
+conflicting with a running LMU instance. `make mock ARGS='--data-dir ...'` also
+accepts these options. Stop with Ctrl-C. Both listeners default to loopback;
+there is no TLS or production authentication. Do not expose them to untrusted networks.
+
+#### Response files and updates
+
+The default `--data-dir` is `data/mock-api`, relative to the working directory:
+
+```text
+lmu/auth-session-ticket.json
+raceos/authenticate.json
+raceos/results/daily/page-1.json
+raceos/results/daily/page-2.json
+raceos/results/daily/page-3.json
+raceos/results/specialevent/page-1.json
+raceos/results/championship/page-1.json
+```
+
+Daily templates contain 20 events on page 1 and 5 on page 2, newest first.
+Page 3 contains literal `null` to end pagination; the other event types start
+with `null`. The baseline includes fictional opponents, qualifying/practice
+sessions, DNF and missing optional values. Every identity is a dummy.
+
+The handler reads the matching file on **every request**, without caching.
+To simulate updates, finish the current sync, edit the working JSON, then sync
+again. For example, change `player.driverRank.elo` or `player.safetyRank.rating`
+in `raceos/authenticate.json`. For a new event, use a new dummy `eventId`, keep
+the tracked `steamId` consistent in `drivers` and session results, and split the
+newest-first events into pages of at most 20. Keep an explicit `null` or `[]`
+page after the final data page. Retain an event's ID when correcting its results.
+Keep the fixed fake credentials unchanged.
+
+There are no automatic updates, snapshot locks, or multi-file atomic swaps.
+Do not edit during synchronization: pages and profile could come from different
+versions. Missing/unreadable response files or invalid JSON return a safe JSON
+500 error, not an empty successful response. The requested page maps directly to
+`page-N.json`; a missing page is not an implicit terminator.
 
 Supported contracts:
 
@@ -418,7 +485,7 @@ Supported contracts:
 | --- | --- | --- |
 | LMU | `GET /rest/profile/getAuthSessionTicket` | `{"authSessionTicket":"mock-steam-ticket"}` |
 | RaceOS | `POST /authenticate` with JSON `{"token":"mock-steam-ticket","game":"lmu","platform":"steam"}` | `accessToken` and fake player identity/DR/SR |
-| RaceOS | `GET /api/v1/results?eventType=daily&page=1&take=20` with `Game-Authorization: Bearer mock-access-token` | One result event; subsequent pages return null |
+| RaceOS | `GET /api/v1/results?eventType=daily&page=1&take=20` with `Game-Authorization: Bearer mock-access-token` | Matching `raceos/results/daily/page-N.json`: 20 events, 5 events, then null |
 
 RaceOS returns 400 for malformed or trailing JSON and 401 for incorrect or missing
 credentials. Unknown JSON fields are ignored. Unimplemented paths return 404;
@@ -426,10 +493,9 @@ unsupported methods return 405 (standard `ServeMux` GET routes also accept HEAD)
 The normal CLI request cooldown and authentication wait remain enabled.
 
 To extend the mocks, register method-qualified routes in `internal/mockapi/lmu.go`
-or `internal/mockapi/raceos.go`. Each constructor returns a separate
-`*http.ServeMux`, so callers can also add routes before serving it. Keep new
-endpoints service-specific and use only fake data; no generic fixture engine or
-complete API emulator is required.
+or `internal/mockapi/raceos.go` and add synthetic response files. Each constructor
+accepts a data directory and returns a separate `*http.ServeMux`. Keep endpoints
+service-specific; no generic fixture engine or complete API emulator is required.
 
 ## Container
 

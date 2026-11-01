@@ -15,6 +15,8 @@ import (
 func TestOfflineSyncConfigPrecedenceAndReadOnlyQuery(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("LMU_INT_API", "invalid-offline-origin")
+	t.Setenv("RACEOS_URL", "")
 	input := filepath.Join(dir, "results.json")
 	if err := os.WriteFile(input, []byte(`[{"eventId":"event","date":"2026-01-01T12:00:00Z","title":"Offline Race","drivers":[{"steamId":"self","name":"Driver"}],"race":{"sessionNo":"1","races":[{"results":[{"steamId":"self","position":"2"}]}]}}]`), 0600); err != nil {
 		t.Fatal(err)

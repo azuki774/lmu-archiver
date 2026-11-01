@@ -1,0 +1,1697 @@
+[
+  {
+    "eventId": "mock-event-001",
+    "date": "2026-01-25T12:00:00Z",
+    "title": "Mock Race 001",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 18,
+              "bestLapTime": "99.835",
+              "finishTime": "1830.9375",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-002",
+    "date": "2026-01-24T12:00:00Z",
+    "title": "Mock Race 002",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 18,
+              "bestLapTime": "99.835",
+              "finishTime": "1830.9375",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-003",
+    "date": "2026-01-23T12:00:00Z",
+    "title": "Mock Race 003",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 18,
+              "bestLapTime": "99.835",
+              "finishTime": "1830.9375",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    },
+    "qualifying": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 5,
+              "bestLapTime": "98.123456",
+              "finishTime": "",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-004",
+    "date": "2026-01-22T12:00:00Z",
+    "title": "Mock Race 004",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 18,
+              "bestLapTime": "99.835",
+              "finishTime": "1830.9375",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    },
+    "practice": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "",
+              "classPosition": "",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 2,
+              "bestLapTime": "99.835",
+              "finishTime": "",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-005",
+    "date": "2026-01-21T12:00:00Z",
+    "title": "Mock Race 005",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "",
+              "classGridPos": "2",
+              "Laps": 3,
+              "bestLapTime": "",
+              "finishTime": "",
+              "finishStatus": "DNF",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-006",
+    "date": "2026-01-20T12:00:00Z",
+    "title": "Mock Race 006",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 18,
+              "bestLapTime": "99.835",
+              "finishTime": "1830.9375",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    },
+    "qualifying": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 5,
+              "bestLapTime": "98.123456",
+              "finishTime": "",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-007",
+    "date": "2026-01-19T12:00:00Z",
+    "title": "Mock Race 007",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 18,
+              "bestLapTime": "99.835",
+              "finishTime": "1830.9375",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-008",
+    "date": "2026-01-18T12:00:00Z",
+    "title": "Mock Race 008",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 18,
+              "bestLapTime": "99.835",
+              "finishTime": "1830.9375",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    },
+    "practice": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "",
+              "classPosition": "",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 2,
+              "bestLapTime": "99.835",
+              "finishTime": "",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-009",
+    "date": "2026-01-17T12:00:00Z",
+    "title": "Mock Race 009",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 18,
+              "bestLapTime": "99.835",
+              "finishTime": "1830.9375",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    },
+    "qualifying": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 5,
+              "bestLapTime": "98.123456",
+              "finishTime": "",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-010",
+    "date": "2026-01-16T12:00:00Z",
+    "title": "Mock Race 010",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "",
+              "classGridPos": "2",
+              "Laps": 3,
+              "bestLapTime": "",
+              "finishTime": "",
+              "finishStatus": "DNF",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-011",
+    "date": "2026-01-15T12:00:00Z",
+    "title": "Mock Race 011",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 18,
+              "bestLapTime": "99.835",
+              "finishTime": "1830.9375",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-012",
+    "date": "2026-01-14T12:00:00Z",
+    "title": "Mock Race 012",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 18,
+              "bestLapTime": "99.835",
+              "finishTime": "1830.9375",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    },
+    "qualifying": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 5,
+              "bestLapTime": "98.123456",
+              "finishTime": "",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            }
+          ]
+        }
+      ]
+    },
+    "practice": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "",
+              "classPosition": "",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 2,
+              "bestLapTime": "99.835",
+              "finishTime": "",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-013",
+    "date": "2026-01-13T12:00:00Z",
+    "title": "Mock Race 013",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 18,
+              "bestLapTime": "99.835",
+              "finishTime": "1830.9375",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-014",
+    "date": "2026-01-12T12:00:00Z",
+    "title": "Mock Race 014",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 18,
+              "bestLapTime": "99.835",
+              "finishTime": "1830.9375",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-015",
+    "date": "2026-01-11T12:00:00Z",
+    "title": "Mock Race 015",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "",
+              "classGridPos": "2",
+              "Laps": 3,
+              "bestLapTime": "",
+              "finishTime": "",
+              "finishStatus": "DNF",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    },
+    "qualifying": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "",
+              "classGridPos": "2",
+              "Laps": 5,
+              "bestLapTime": "98.123456",
+              "finishTime": "",
+              "finishStatus": "DNF",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-016",
+    "date": "2026-01-10T12:00:00Z",
+    "title": "Mock Race 016",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 18,
+              "bestLapTime": "99.835",
+              "finishTime": "1830.9375",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    },
+    "practice": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "",
+              "classPosition": "",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 2,
+              "bestLapTime": "99.835",
+              "finishTime": "",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-017",
+    "date": "2026-01-09T12:00:00Z",
+    "title": "Mock Race 017",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 18,
+              "bestLapTime": "99.835",
+              "finishTime": "1830.9375",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-018",
+    "date": "2026-01-08T12:00:00Z",
+    "title": "Mock Race 018",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 18,
+              "bestLapTime": "99.835",
+              "finishTime": "1830.9375",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    },
+    "qualifying": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 5,
+              "bestLapTime": "98.123456",
+              "finishTime": "",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-019",
+    "date": "2026-01-07T12:00:00Z",
+    "title": "Mock Race 019",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "4",
+              "classGridPos": "2",
+              "Laps": 18,
+              "bestLapTime": "99.835",
+              "finishTime": "1830.9375",
+              "finishStatus": "Finished Normally",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "eventId": "mock-event-020",
+    "date": "2026-01-06T12:00:00Z",
+    "title": "Mock Race 020",
+    "track": "Mock Circuit",
+    "eventType": "daily",
+    "seriesId": "mock-series",
+    "tier": "Silver",
+    "splitNo": "1",
+    "official": true,
+    "teamEvent": false,
+    "drivers": [
+      {
+        "steamId": "mock-steam-id",
+        "name": "Mock Driver",
+        "class": "GT3",
+        "driverRank": {
+          "rank": "Silver",
+          "tier": 1,
+          "progress": 25.5
+        },
+        "safetyRank": {
+          "rank": "Gold",
+          "tier": 2,
+          "progress": 80.125
+        },
+        "driverRankAdjustment": 1,
+        "safetyRankAdjustment": 0,
+        "jokerPlayed": false
+      },
+      {
+        "steamId": "mock-opponent-001",
+        "name": "Mock Opponent",
+        "class": "GT3"
+      }
+    ],
+    "race": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "2",
+              "classPosition": "1",
+              "gridPos": "",
+              "classGridPos": "2",
+              "Laps": 3,
+              "bestLapTime": "",
+              "finishTime": "",
+              "finishStatus": "DNF",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            },
+            {
+              "steamId": "mock-opponent-001",
+              "name": "Mock Opponent",
+              "position": "1",
+              "classPosition": "2",
+              "Laps": 18,
+              "bestLapTime": "99.8000",
+              "finishStatus": "Finished Normally"
+            }
+          ]
+        }
+      ]
+    },
+    "practice": {
+      "sessionNo": "1",
+      "races": [
+        {
+          "results": [
+            {
+              "steamId": "mock-steam-id",
+              "name": "Mock Driver",
+              "position": "",
+              "classPosition": "",
+              "gridPos": "",
+              "classGridPos": "2",
+              "Laps": 2,
+              "bestLapTime": "",
+              "finishTime": "",
+              "finishStatus": "DNF",
+              "carNumber": "032",
+              "carType": "Mock GT3",
+              "carClass": "GT3",
+              "teamName": "Mock Racing"
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

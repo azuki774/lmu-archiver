@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,15 @@ import (
 
 	"github.com/azuki774/lmu-archiver/internal/mockapi"
 )
+
+func copyMockData(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.CopyFS(dir, os.DirFS("../testdata/mock-api")); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
 
 func TestCLIAuthentication(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -55,7 +65,8 @@ func TestCLIAuthentication(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			lmuHandler := mockapi.NewLMUHandler()
+			dataDir := copyMockData(t)
+			lmuHandler := mockapi.NewLMUHandler(dataDir)
 			lmu := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if tc.lmuFailure {
 					http.Error(w, "mock-steam-ticket private-response", http.StatusServiceUnavailable)
@@ -65,7 +76,7 @@ func TestCLIAuthentication(t *testing.T) {
 			}))
 			defer lmu.Close()
 			var raceCalls atomic.Int32
-			raceOSHandler := mockapi.NewRaceOSHandler()
+			raceOSHandler := mockapi.NewRaceOSHandler(dataDir)
 			raceOS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				raceCalls.Add(1)
 				if tc.raceOSStatus != 0 {

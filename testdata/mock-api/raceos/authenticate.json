@@ -1,0 +1,25 @@
+{
+  "accessToken": "mock-access-token",
+  "player": {
+    "id": "mock-player",
+    "name": "Mock Driver",
+    "platforms": [
+      {
+        "id": "mock-steam-id",
+        "platform": "steam"
+      }
+    ],
+    "driverRank": {
+      "elo": 1500.25,
+      "rank": "Silver",
+      "tier": 1,
+      "progress": 25.5
+    },
+    "safetyRank": {
+      "rating": 4.25,
+      "rank": "Gold",
+      "tier": 2,
+      "progress": 80.125
+    }
+  }
+}
