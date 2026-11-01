@@ -6,8 +6,9 @@ online racing data under your own control.
 ## Status
 
 **Work in progress.** The Go CLI can obtain a Steam session ticket from a running
-LMU instance and authenticate with RaceOS (`raceos.gg`). Specific data retrieval,
-processing, and archiving are not implemented yet.
+LMU instance and authenticate with RaceOS (`raceos.gg`). Minimal local mocks
+support development of this authentication flow without either service. Specific
+data retrieval, processing, and archiving are not implemented yet.
 
 ## Goals and data ownership
 
@@ -59,13 +60,15 @@ guarantee compliance with service-side usage limits.
 ## Project layout
 
 ```text
-cmd/lmu-archiver/   CLI entry point
-internal/auth/     LMU ticket acquisition and RaceOS authentication
+cmd/lmu-archiver/     CLI entry point
+cmd/mock-apis/        Local LMU and RaceOS mock servers
+internal/auth/       LMU ticket acquisition and RaceOS authentication
 internal/httpclient/ Shared HTTP client and API request cooldown
-bin/               Local build output (ignored except for .gitkeep)
-go.mod             Go module definition
-Makefile           Local build, run, and test commands
-Dockerfile         Multi-stage container build
+internal/mockapi/    Service-specific mock HTTP handlers
+bin/                 Local build output (ignored except for .gitkeep)
+go.mod               Go module definition
+Makefile             Local build, run, mock, and test commands
+Dockerfile           Multi-stage CLI container build
 ```
 
 ## Local environment
@@ -166,10 +169,64 @@ make test
 
 Replace the example IP with your LMU PC's address. On success, `auth` prints only
 `Authentication succeeded.` and discards the in-memory session on exit. It does
-not print or save credentials for a later invocation. LMU must be running; set
-`--lmu-url` to the REST API address it listens on.
+not print or save credentials for a later invocation. For real authentication,
+LMU must be running; set `--lmu-url` to the REST API address it listens on.
+`--raceos-url` defaults to `https://raceos.gg`. Override it only with a trusted
+server: the CLI sends the Steam session ticket to that origin.
 
 Tests use local HTTP servers and do not contact LMU or RaceOS.
+
+### Local API mocks
+
+The mocks cover only the authentication endpoints currently used by the CLI.
+They use fixed fake credentials, make no upstream requests, and do not emulate
+Steam, token expiry, or data retrieval.
+
+Start both servers in one terminal:
+
+```sh
+make mock
+# LMU mock: http://127.0.0.1:6937
+# RaceOS mock: http://127.0.0.1:8081
+```
+
+In another terminal, build and run the real CLI against **both** mock origins:
+
+```sh
+make build
+./bin/lmu-archiver auth \
+  --lmu-url http://127.0.0.1:6937 \
+  --raceos-url http://127.0.0.1:8081
+# Authentication succeeded.
+```
+
+`make build` also produces `bin/mock-apis`, which can be run directly.
+Stop the servers with Ctrl-C. Both listeners default to loopback; these are
+development servers without authentication or TLS, not services to expose.
+To avoid a port conflict with a running LMU instance, change the listeners and
+pass the matching origins to the CLI:
+
+```sh
+make mock ARGS='--lmu-listen 127.0.0.1:16937 --raceos-listen 127.0.0.1:18081'
+```
+
+Supported contracts:
+
+| Service | Request | Response |
+| --- | --- | --- |
+| LMU | `GET /rest/profile/getAuthSessionTicket` | `{"authSessionTicket":"mock-steam-ticket"}` |
+| RaceOS | `POST /authenticate` with JSON `{"token":"mock-steam-ticket","game":"lmu","platform":"steam"}` | `{"accessToken":"mock-access-token"}` |
+
+RaceOS returns 400 for malformed or trailing JSON and 401 for incorrect or missing
+credentials. Unknown JSON fields are ignored. Unimplemented paths return 404;
+unsupported methods return 405 (standard `ServeMux` GET routes also accept HEAD).
+The normal CLI request cooldown and authentication wait remain enabled.
+
+To extend the mocks, register method-qualified routes in `internal/mockapi/lmu.go`
+or `internal/mockapi/raceos.go`. Each constructor returns a separate
+`*http.ServeMux`, so callers can also add routes before serving it. Keep new
+endpoints service-specific and use only fake data; no generic fixture engine or
+complete API emulator is required.
 
 ## Container
 

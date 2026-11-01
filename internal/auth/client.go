@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-const raceOSURL = "https://raceos.gg"
-
 // Session contains credentials for subsequent requests in the same process.
 // AccessToken is a secret: never log, print, or persist it.
 type Session struct {
@@ -30,18 +28,27 @@ type Client struct {
 }
 
 // NewClient uses the supplied shared HTTP client to contact LMU and RaceOS.
-// The base URL must be an HTTP origin, without credentials, path, query, or fragment.
-func NewClient(lmuURL string, httpClient *http.Client) (*Client, error) {
-	u, err := url.Parse(lmuURL)
-	if err != nil || u.Scheme != "http" || u.Hostname() == "" || u.User != nil ||
-		(u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+// Base URLs must be origins without credentials, path, query, or fragment.
+// LMU requires HTTP; RaceOS accepts HTTPS, or HTTP for local mock servers.
+func NewClient(lmuURL, raceOSURL string, httpClient *http.Client) (*Client, error) {
+	if !validOrigin(lmuURL, false) {
 		return nil, errors.New("LMU URL must be an HTTP origin such as http://127.0.0.1:6937")
+	}
+	if !validOrigin(raceOSURL, true) {
+		return nil, errors.New("RaceOS URL must be an HTTP or HTTPS origin such as https://raceos.gg")
 	}
 	return &Client{
 		http:      httpClient,
 		lmuURL:    strings.TrimRight(lmuURL, "/"),
-		raceOSURL: raceOSURL,
+		raceOSURL: strings.TrimRight(raceOSURL, "/"),
 	}, nil
+}
+
+func validOrigin(rawURL string, allowHTTPS bool) bool {
+	u, err := url.Parse(rawURL)
+	return err == nil && (u.Scheme == "http" || allowHTTPS && u.Scheme == "https") &&
+		u.Hostname() != "" && u.User == nil && (u.Path == "" || u.Path == "/") &&
+		u.RawQuery == "" && !u.ForceQuery && u.Fragment == ""
 }
 
 // Authenticate obtains a fresh ticket and exchanges it for an in-memory session.
