@@ -45,6 +45,90 @@ Makefile           Local build, run, and test commands
 Dockerfile         Multi-stage container build
 ```
 
+## Local environment
+
+Copy the reference configuration and adjust the LMU internal API URL for your
+environment:
+
+```sh
+cp .env.sample .env
+```
+
+The sample uses the local Windows API address:
+
+```dotenv
+LMU_INT_API="http://127.0.0.1:6937/"
+```
+
+`.env` is ignored by Git; `.env.sample` is the shared reference. The current CLI
+does not load `.env` or use `LMU_INT_API` automatically. After building, load your
+trusted local file in a POSIX shell and pass its value explicitly:
+
+```sh
+. ./.env
+./bin/lmu-archiver auth --lmu-url "$LMU_INT_API"
+```
+
+### Accessing the Windows API from another machine (at your own risk)
+
+If the API listens only on `127.0.0.1:6937`, another machine cannot connect to it
+directly. The example below forwards `<Windows LAN IP>:16397` to
+`127.0.0.1:6937` on the Windows machine running LMU.
+
+**Use at your own risk.** This exposes a loopback-only API to the network.
+`portproxy` adds neither authentication nor TLS; use only a trusted LAN and do not
+expose this port to the Internet or configure router port forwarding.
+
+Open **PowerShell as Administrator** on the Windows machine. Replace both
+placeholders with actual IPv4 addresses: `$lmuHostIp` is the Windows machine's LAN
+IP, and `$clientIp` is the allowed connecting machine's IP as seen by Windows.
+This example assumes that the trusted Windows LAN connection uses the **Private**
+network profile; the firewall rule will not apply on a Public connection.
+
+```powershell
+$lmuHostIp = "<Windows LAN IP>"
+$clientIp = "<allowed client IP>"
+
+netsh interface portproxy add v4tov4 `
+    listenaddress=$lmuHostIp `
+    listenport=16397 `
+    connectaddress=127.0.0.1 `
+    connectport=6937
+
+New-NetFirewallRule `
+    -DisplayName "LMU REST proxy 16397" `
+    -Direction Inbound `
+    -Protocol TCP `
+    -LocalAddress $lmuHostIp `
+    -LocalPort 16397 `
+    -RemoteAddress $clientIp `
+    -Profile Private `
+    -Action Allow
+```
+
+The proxy listens only on the selected Windows IP. The firewall rule allows TCP
+port `16397` only for that local IP and the specified client on the Private
+profile. Review any existing firewall rules as well; this rule does not override
+broader permissions already configured.
+
+For example, if the Windows LAN IP is `192.168.10.16`, use this in the connecting
+machine's `.env`:
+
+```dotenv
+LMU_INT_API="http://192.168.10.16:16397"
+```
+
+With LMU and its API running, inspect the proxy on Windows using
+`netsh interface portproxy show v4tov4`. From the allowed client, check the HTTP
+connection with `curl --verbose --max-time 5 http://192.168.10.16:16397/`
+(substitute your Windows IP). An HTTP error at `/` can still indicate that the
+connection works; it does not prove a particular API endpoint is available.
+
+References: Microsoft documentation for
+[`netsh interface portproxy`](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-interface#interface-portproxy)
+and
+[`New-NetFirewallRule`](https://learn.microsoft.com/en-us/powershell/module/netsecurity/new-netfirewallrule).
+
 ## Development
 
 Requires Go 1.26 or later and Make.
