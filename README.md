@@ -207,8 +207,8 @@ parent directories use `0700`. Existing permissions are not changed. If database
 saving fails after the profile is written, that profile file remains available.
 Protect results JSON too: it contains other drivers' names and Steam IDs.
 
-See [SQLite設計と運用](docs/sqlite.md) for the schema, indexes, timestamp
-semantics, and migration/backup rules.
+See the [SQLite reference](docs/sqlite.md) for tables, constraints, indexes,
+query examples, and migration/backup rules.
 
 ## Development
 
