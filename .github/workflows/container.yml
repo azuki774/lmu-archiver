@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [master]
+    tags: ['**']
   workflow_dispatch:
     inputs:
       revision:
@@ -21,6 +22,7 @@ jobs:
     outputs:
       revision: ${{ steps.revision.outputs.revision }}
       tag: ${{ steps.revision.outputs.tag }}
+      release: ${{ steps.revision.outputs.release }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         if: github.event_name == 'workflow_dispatch'
@@ -41,8 +43,21 @@ jobs:
             [[ "$REF" == refs/heads/master ]]
             git merge-base --is-ancestor "$REVISION" HEAD
           fi
-          echo "revision=$REVISION" >> "$GITHUB_OUTPUT"
-          echo "tag=${REVISION:0:7}" >> "$GITHUB_OUTPUT"
+          tag=${REVISION:0:7}
+          release=false
+          if [[ "$EVENT_NAME" == push && "$REF" == refs/tags/* ]]; then
+            tag=${REF#refs/tags/}
+            if [[ ! "$tag" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
+              echo '::error::Git tag must also be a valid Docker image tag.' >&2
+              exit 1
+            fi
+            release=true
+          fi
+          {
+            echo "revision=$REVISION"
+            echo "tag=$tag"
+            echo "release=$release"
+          } >> "$GITHUB_OUTPUT"
 
   build:
     needs: metadata
@@ -119,6 +134,22 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ needs.metadata.outputs.revision }}
+      - name: Determine image tags
+        id: image_tags
+        env:
+          IMAGE_NAME: ${{ matrix.image }}
+          TAG: ${{ needs.metadata.outputs.tag }}
+          RELEASE: ${{ needs.metadata.outputs.release }}
+        shell: bash
+        run: |
+          {
+            echo 'tags<<EOF'
+            echo "ghcr.io/azuki774/${IMAGE_NAME}:${TAG}"
+            if [[ "$RELEASE" == true && "$TAG" != latest ]]; then
+              echo "ghcr.io/azuki774/${IMAGE_NAME}:latest"
+            fi
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
@@ -131,7 +162,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/azuki774/${{ matrix.image }}:${{ needs.metadata.outputs.tag }}
+          tags: ${{ steps.image_tags.outputs.tags }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ needs.metadata.outputs.revision }}
