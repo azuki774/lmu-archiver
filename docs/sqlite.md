@@ -2,13 +2,13 @@
 
 This document describes the archive's SQLite schema, constraints, indexes, and
 queries. Command-line usage is in the [README](../README.md#sqlite-archive).
-The schema is defined by the [goose migrations](../db/migrations/00001_archive.sql);
+The schema is defined by the [goose migrations](../db/migrations/);
 the application queries are implemented in [storage](../internal/storage/store.go).
 
 ## Database configuration
 
-- Default file: `./data/archive.sqlite3`; archive commands accept `--db`.
-  Profile files default to `./data/raw`, configurable with `--raw-dir`.
+- Default file: `./data/archive.sqlite3`; commands accept `--db`.
+  Capture files default to `./data/raw`, configurable with `sync --raw-dir`.
   Relative paths are resolved against the process's current working directory,
   not the executable's directory. Neither default is hard-coded to `/data`.
 - The repository's `/data/` ignore rule excludes its root-level `data/`
@@ -19,7 +19,7 @@ the application queries are implemented in [storage](../internal/storage/store.g
   mount; a relative path does not itself grant filesystem permissions.
 - Driver: `modernc.org/sqlite`, through Go's `database/sql`; no external SQLite
   executable is required by the application.
-- All five data tables use `STRICT` typing, requiring SQLite 3.37.0 or later for
+- All six application tables use `STRICT` typing, requiring SQLite 3.37.0 or later for
   external tools that open the database.
 - Each application connection enables `PRAGMA foreign_keys = ON` and sets
   `PRAGMA busy_timeout = 5000`. The application pool allows one open connection.
@@ -59,6 +59,7 @@ players ──< event_participations >── events
                  │
                  └──< session_results
 players ──< rating_snapshots
+players ──< capture_observations
 ```
 
 An event contains shared information. A participation contains one tracked
@@ -152,9 +153,21 @@ one microsecond is rejected rather than rounded.
 | `dr_tier`, `sr_tier` | INTEGER | NOT NULL; observed rank tiers |
 | `dr_progress`, `sr_progress` | REAL | NOT NULL; observed rank progress |
 
-Observations are appended even when their values are unchanged. A present zero
-is different from a missing rating field; the capture command rejects missing
-required identity/rating fields. There is no event foreign key or per-race delta.
+New captures append observations even when their values are unchanged. Replaying
+the same capture does not append an observation or change its timestamp. A present
+zero differs from a missing field; sync rejects missing required identity/rating
+fields. There is no event foreign key or per-race delta.
+
+### `capture_observations`
+
+Defined in the initial migration `00001_archive.sql`. Primary key:
+**`(capture_id, player_id)`**. `capture_id` is nonblank TEXT from the capture's
+manifest; `player_id` references `players(player_id)`.
+
+The marker is inserted in the same transaction as results and the observation.
+An existing marker suppresses only the duplicate observation; result rows are
+still reimported. Capture IDs must remain stable when backing up or relocating
+captures.
 
 ## Indexes
 
@@ -313,19 +326,24 @@ replaces only that player's session results for those events. A failed import
 rolls back all changes from that transaction. Other tracked players' results
 are retained. An empty array or null results page imports zero events.
 
-Rating capture writes the separate sanitized profile file first, then inserts
-the observation in a database transaction. The filesystem and SQLite do not
-share a transaction: a database failure can leave a profile file without an
-observation row. The capture does not save authentication credentials.
+Online sync saves a complete capture before ingestion. The sanitized profile and
+its original observation timestamp are linked by a versioned manifest. One DB
+transaction imports events, records the capture marker, and inserts its rating
+observation if the marker is new. Failure rolls back all three; replay cannot
+consume the marker without saving the observation. Results-only files import no
+ratings. The filesystem and SQLite do not share a transaction: a DB failure
+retains the capture for `sync --skip-download --input ...`.
 
 ## Migrations and backups
 
 - SQL files in `db/migrations/` are embedded in the binary and applied with
-  goose when any archive command opens the database. Even query commands can
-  apply pending migrations. The CLI also provides `archive migrate`.
+  goose by `sync` or explicit `db migrate`.
+- `races`, `ratings`, and `serve` use SQLite `mode=ro`, verify the schema version,
+  and never create or migrate a database. Missing/outdated schemas require an
+  explicit write operation before reading.
 - goose records applied versions in its own management table, in addition to
-  the five application tables. Do not edit an applied migration; add a new file.
-- The initial Down migration drops all five data tables. It cannot restore
+  the six application tables. Do not edit an applied migration; add a new file.
+- The initial Down migration drops all six application tables. It cannot restore
   deleted data, and the archive CLI does not expose a Down command.
 - Back up before destructive schema changes. Copy the database after stopping
   writers and closing their connections, or use SQLite's backup API for a live
