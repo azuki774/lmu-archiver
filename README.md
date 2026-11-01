@@ -77,6 +77,7 @@ bin/                 Local build output (ignored except for .gitkeep)
 go.mod               Go module definition
 Makefile             Local build, run, mock, and test commands
 Dockerfile           Multi-stage CLI container build
+Dockerfile.mock      Multi-stage Alpine mock API container build
 ```
 
 ## Local environment
@@ -512,3 +513,40 @@ docker run --rm lmu-archiver auth check --lmu-url http://192.0.2.10:6937
 ```
 
 Inside a container, `127.0.0.1` refers to the container, not the LMU PC.
+
+### Mock API container
+
+The separate Alpine image runs both mock servers in one process, with the
+synthetic JSON templates included under `/data/mock-api`:
+
+```sh
+docker build -f Dockerfile.mock -t lmu-archiver-mock .
+docker run --rm --name lmu-mock \
+  -p 127.0.0.1:6937:6937 -p 127.0.0.1:8081:8081 \
+  lmu-archiver-mock
+```
+
+The LMU and RaceOS origins on the host are respectively
+`http://127.0.0.1:6937` and `http://127.0.0.1:8081`. Point **both**
+`LMU_INT_API` and `RACEOS_URL` at them when using the CLI. Both servers listen
+on all container interfaces; the loopback port mappings above restrict host
+access. These mocks have no TLS or production authentication: use only trusted
+container networks and do not expose them to untrusted clients.
+
+To persist and edit responses on the host, first run `make mock-init` as described
+above, then use this alternative to the `docker run` command:
+
+```sh
+docker run --rm --name lmu-mock \
+  -p 127.0.0.1:6937:6937 -p 127.0.0.1:8081:8081 \
+  --mount "type=bind,src=$(pwd)/data/mock-api,dst=/data/mock-api,readonly" \
+  lmu-archiver-mock
+```
+
+The bind mount replaces the included templates, so it must contain the complete
+response tree and be readable by UID/GID `65532:65532`. Changes to its files are
+visible on the next request; do not edit them during a sync. Without a mount,
+edits inside the container are lost when it is removed. Alpine supplies `/bin/sh`
+for inspecting or changing the included files. Append `--data-dir`,
+`--lmu-listen`, or `--raceos-listen` after the image name to override the
+container defaults.

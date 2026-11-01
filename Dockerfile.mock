@@ -1,0 +1,14 @@
+FROM golang:1.26-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+COPY cmd/mock-apis/ ./cmd/mock-apis/
+COPY internal/ ./internal/
+RUN CGO_ENABLED=0 go build -trimpath -o /out/mock-apis ./cmd/mock-apis
+
+FROM alpine:3.23
+COPY --from=build /out/mock-apis /usr/local/bin/mock-apis
+COPY --chown=65532:65532 testdata/ /data/
+WORKDIR /data/mock-api
+USER 65532:65532
+EXPOSE 6937 8081
+ENTRYPOINT ["/usr/local/bin/mock-apis", "--lmu-listen=0.0.0.0:6937", "--raceos-listen=0.0.0.0:8081", "--data-dir=/data/mock-api"]
