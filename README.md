@@ -34,20 +34,27 @@ overview of the authentication-to-archiving flow.
 This project is independent and is not affiliated with Le Mans Ultimate,
 Studio 397, Motorsport Games, or the referenced tools.
 
-## API request pacing
+## Considerate API usage
 
-The CLI shares one HTTP client across LMU and RaceOS requests. The first request
-can start immediately; subsequent requests wait at least one second after the
-previous transport attempt returns response headers or an error. Concurrent
-callers share the same gate, with no accumulated burst allowance after idle time.
-Response bodies do not hold the gate.
+Keeping the load on LMU and RaceOS as low as practical takes priority over
+retrieval speed. The aim is to avoid burdening the services we depend on, not to
+maximize request throughput.
+
+The CLI shares one HTTP client across both services to prevent concentrated
+access from concurrent callers, after failures, or when resuming after idle time.
+As a concrete safeguard, each transport attempt is followed by at least one second
+before the next request, measured from response headers or a communication error.
+Idle time does not accumulate permission for a burst, and failed attempts also
+consume the cooldown. HTTP errors, including 429, are not automatically retried.
 
 Waiting is cancelable and counts toward the client's 20-second request timeout.
-Failed attempts also consume the cooldown; HTTP errors, including 429, are not
-automatically retried. The existing 1.2-second authentication-specific wait remains.
-New API clients must receive the same HTTP client to participate in this limit.
+The existing 1.2-second authentication-specific wait remains. New API clients must
+receive the same HTTP client to participate in this protection. Response body
+consumption does not hold the shared gate.
+
 Separate CLI processes, underlying transport retries, and server arrival timing
-are outside this guarantee.
+are outside this guarantee. This safeguard does not eliminate service load or
+guarantee compliance with service-side usage limits.
 
 ## Project layout
 
