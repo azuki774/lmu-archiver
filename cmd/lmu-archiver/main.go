@@ -21,18 +21,21 @@ func main() {
 
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	usage := func(w io.Writer) {
-		fmt.Fprintln(w, "Usage: lmu-archiver auth [flags]")
-		fmt.Fprintln(w, "\nAuthenticate with RaceOS using a running Le Mans Ultimate instance.")
-		fmt.Fprintln(w, "Data retrieval and archiving are not implemented yet.")
-		fmt.Fprintln(w, "\nCommands:\n  auth  Obtain an in-memory session; no credentials are printed or saved")
-		fmt.Fprintln(w, "\nRun lmu-archiver auth --help for connection options.")
+		fmt.Fprintln(w, "Usage: lmu-archiver <auth|archive> [flags]")
+		fmt.Fprintln(w, "\nCommands:")
+		fmt.Fprintln(w, "  auth     Authenticate; no credentials are printed or saved")
+		fmt.Fprintln(w, "  archive  Import race results, record ratings, and query SQLite")
+		fmt.Fprintln(w, "\nRun a command with --help for its options.")
 	}
 	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" {
 		usage(stdout)
 		return 0
 	}
+	if args[0] == "archive" {
+		return runArchive(ctx, args[1:], stdout, stderr)
+	}
 	if args[0] != "auth" {
-		fmt.Fprintln(stderr, "Error: expected the auth command")
+		fmt.Fprintln(stderr, "Error: expected auth or archive")
 		usage(stderr)
 		return 2
 	}
