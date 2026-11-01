@@ -35,7 +35,7 @@ func NewClient(lmuURL string) (*Client, error) {
 	u, err := url.Parse(lmuURL)
 	if err != nil || u.Scheme != "http" || u.Hostname() == "" || u.User != nil ||
 		(u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
-		return nil, errors.New("LMU URL must be an HTTP origin such as http://127.0.0.1:16397")
+		return nil, errors.New("LMU URL must be an HTTP origin such as http://127.0.0.1:6937")
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = nil

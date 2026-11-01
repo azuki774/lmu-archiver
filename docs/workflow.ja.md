@@ -12,7 +12,7 @@
 対象のデータを所有する Steam アカウントで LMU を起動し、メインメニューまで
 進めてください。アーカイバから LMU PC のローカル REST API に接続できる必要が
 あります。接続先 URL（ホストとポート）は `--lmu-url` で指定します。CLI の既定値は
-`http://127.0.0.1:16397` です。実行中の LMU が待受しているポートを指定してください。
+`http://127.0.0.1:6937` です。実行中の LMU が待受しているポートを指定してください。
 参照実装の例とは異なる場合があります。同じプロセスから `https://raceos.gg` へ、
 プロキシを介さず直接接続できる必要もあります。
 
@@ -83,7 +83,7 @@ Game-Authorization: Bearer <accessToken>
 
 ```sh
 make build
-./bin/lmu-archiver auth --lmu-url http://192.0.2.10:16397
+./bin/lmu-archiver auth --lmu-url http://192.0.2.10:6937
 ```
 
 例のアドレスを LMU PC のアドレスに置き換えてください。

@@ -12,7 +12,7 @@ No race-result endpoint or storage format is selected here.
 Start LMU with the Steam account whose data you want to access and reach the main
 menu. The archiver must be able to reach the LMU PC's local REST API. Set the base
 URL, including host and port, with `--lmu-url`. The CLI default is
-`http://127.0.0.1:16397`. Use the port the running LMU instance listens on, which
+`http://127.0.0.1:6937`. Use the port the running LMU instance listens on, which
 may differ from examples in the reference implementation. The same process must
 also reach `https://raceos.gg` directly, without a proxy.
 
@@ -85,7 +85,7 @@ connectivity/authentication check, not a persistent login for a later invocation
 
 ```sh
 make build
-./bin/lmu-archiver auth --lmu-url http://192.0.2.10:16397
+./bin/lmu-archiver auth --lmu-url http://192.0.2.10:6937
 ```
 
 Replace the example address with your LMU PC's address. No third-party companion

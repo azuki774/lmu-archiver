@@ -53,7 +53,7 @@ Requires Go 1.26 or later and Make.
 make build
 ./bin/lmu-archiver --help
 make run ARGS=--help
-./bin/lmu-archiver auth --lmu-url http://192.0.2.10:16397
+./bin/lmu-archiver auth --lmu-url http://192.0.2.10:6937
 make test
 ```
 
@@ -75,7 +75,7 @@ The runtime image is `gcr.io/distroless/static-debian13:nonroot`. It runs as a
 non-root user. To authenticate against LMU on another PC, pass its reachable URL:
 
 ```sh
-docker run --rm lmu-archiver auth --lmu-url http://192.0.2.10:16397
+docker run --rm lmu-archiver auth --lmu-url http://192.0.2.10:6937
 ```
 
 Inside a container, `127.0.0.1` refers to the container, not the LMU PC.
