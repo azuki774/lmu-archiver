@@ -514,6 +514,32 @@ docker run --rm lmu-archiver auth check --lmu-url http://192.0.2.10:6937
 
 Inside a container, `127.0.0.1` refers to the container, not the LMU PC.
 
+### Published images
+
+GitHub Actions publishes `ghcr.io/azuki774/lmu-archiver` and
+`ghcr.io/azuki774/lmu-archiver-mock` with matching tags:
+
+- A push to `master` uses the first seven characters of the commit SHA, for
+  example `2e10bb1`.
+- A pushed Git tag uses the exact tag name and also updates `latest` for both
+  images. This includes pre-release tags and tags on older commits.
+
+Git tags must also be valid Docker tags: up to 128 ASCII letters, digits,
+underscores, periods, or hyphens, starting with a letter, digit, or underscore.
+For example, to publish `1.0.2` and `latest`:
+
+```sh
+git tag 1.0.2
+git push origin 1.0.2
+```
+
+After the publish workflow succeeds:
+
+```sh
+docker pull ghcr.io/azuki774/lmu-archiver:1.0.2
+docker pull ghcr.io/azuki774/lmu-archiver-mock:1.0.2
+```
+
 ### Mock API container
 
 The separate Alpine image runs both mock servers in one process, with the
