@@ -1,5 +1,9 @@
 **
 !go.mod
+!go.sum
+!db/
+!db/migrations/
+!db/migrations/**
 !cmd/
 !cmd/**
 !internal/

@@ -18,6 +18,9 @@ import (
 // AccessToken is a secret: never log, print, or persist it.
 type Session struct {
 	AccessToken string `json:"-"`
+	// Profile is untrusted player JSON; consumers must select safe fields before
+	// saving it. Excluded from serialization along with the session credential.
+	Profile json.RawMessage `json:"-"`
 }
 
 // Client authenticates against RaceOS using a running LMU instance.
@@ -52,7 +55,7 @@ func validOrigin(rawURL string, allowHTTPS bool) bool {
 }
 
 // Authenticate obtains a fresh ticket and exchanges it for an in-memory session.
-// It performs no data retrieval, retries, credential caching, or token refresh.
+// The optional player profile stays in memory; no retries or credentials are saved.
 func (c *Client) Authenticate(ctx context.Context) (Session, error) {
 	var ticket struct {
 		Value string `json:"authSessionTicket"`
@@ -83,7 +86,8 @@ func (c *Client) Authenticate(ctx context.Context) (Session, error) {
 		return Session{}, errors.New("RaceOS authentication: cannot encode request")
 	}
 	var response struct {
-		AccessToken string `json:"accessToken"`
+		AccessToken string          `json:"accessToken"`
+		Player      json.RawMessage `json:"player"`
 	}
 	if err := c.request(ctx, "RaceOS authentication", http.MethodPost,
 		c.raceOSURL+"/authenticate", body, &response); err != nil {
@@ -92,7 +96,7 @@ func (c *Client) Authenticate(ctx context.Context) (Session, error) {
 	if strings.TrimSpace(response.AccessToken) == "" {
 		return Session{}, errors.New("RaceOS authentication: missing accessToken")
 	}
-	return Session{AccessToken: response.AccessToken}, nil
+	return Session{AccessToken: response.AccessToken, Profile: response.Player}, nil
 }
 
 func (c *Client) request(ctx context.Context, operation, method, endpoint string, body []byte, result any) error {

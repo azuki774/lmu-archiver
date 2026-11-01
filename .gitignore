@@ -12,6 +12,9 @@
 /bin/*
 !/bin/.gitkeep
 
+# Local archives and sanitized source profiles
+/data/
+
 # Test binary, built with `go test -c`
 *.test
 

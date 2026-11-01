@@ -5,10 +5,11 @@ online racing data under your own control.
 
 ## Status
 
-**Work in progress.** The Go CLI can obtain a Steam session ticket from a running
-LMU instance and authenticate with RaceOS (`raceos.gg`). Minimal local mocks
-support development of this authentication flow without either service. Specific
-data retrieval, processing, and archiving are not implemented yet.
+The Go CLI authenticates with RaceOS (`raceos.gg`), imports existing results JSON
+into a local SQLite archive, and records current DR/SR observations from the
+authenticated profile. JSON queries expose latest races, observation history,
+and read-time reference ratings. Automated results API retrieval is not included.
+Minimal local mocks support authentication without either service.
 
 ## Goals and data ownership
 
@@ -65,6 +66,9 @@ cmd/mock-apis/        Local LMU and RaceOS mock servers
 internal/auth/       LMU ticket acquisition and RaceOS authentication
 internal/httpclient/ Shared HTTP client and API request cooldown
 internal/mockapi/    Service-specific mock HTTP handlers
+internal/ingest/     Own-result parsing and credential-free profile extraction
+internal/storage/    SQLite persistence and temporal queries
+db/migrations/      Embedded goose SQL migrations
 bin/                 Local build output (ignored except for .gitkeep)
 go.mod               Go module definition
 Makefile             Local build, run, mock, and test commands
@@ -154,6 +158,57 @@ References: Microsoft documentation for
 [`netsh interface portproxy`](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-interface#interface-portproxy)
 and
 [`New-NetFirewallRule`](https://learn.microsoft.com/en-us/powershell/module/netsecurity/new-netfirewallrule).
+
+## SQLite archive
+
+The archive uses [goose](https://github.com/pressly/goose) SQL migrations embedded
+in the CLI and a pure-Go SQLite driver; no external goose or SQLite executable
+is required. Every archive command creates/migrates `data/archive.sqlite3` by
+default. Override it with `--db`. Local `data/` is ignored by Git.
+
+```sh
+# Create or upgrade an archive explicitly.
+./bin/lmu-archiver archive migrate --db data/archive.sqlite3
+
+# Import an existing GET /api/v1/results JSON array for your exact Steam ID.
+# The input file remains separate; it is not copied into the database.
+./bin/lmu-archiver archive import-results \
+  --input /path/to/results.json --steam-id YOUR_STEAM_ID
+
+# Record the current profile and its exact DR/SR, without saving credentials.
+# The Steam ID is resolved from the authenticated profile.
+./bin/lmu-archiver archive record-rating \
+  --lmu-url http://192.0.2.10:6937 --raw-dir data/raw
+
+# Latest 10 events with your race results, including your other sessions.
+./bin/lmu-archiver archive races --steam-id YOUR_STEAM_ID --limit 10
+
+# Rating observations for graphing: inclusive start, exclusive end.
+./bin/lmu-archiver archive ratings --steam-id YOUR_STEAM_ID \
+  --from 2026-10-01T00:00:00Z --to 2026-11-01T00:00:00Z
+```
+
+`races` and `ratings` print JSON. `ratings` defaults to the last 30 days.
+Import validates the entire file and commits it atomically; any event missing
+your uniquely identified driver or all of your session results fails the import.
+Reimport replaces your sessions without duplicating events or deleting another
+tracked player's results. Other participants remain in the original JSON.
+
+Each race's `referenceRating` is the latest observation for the same player at
+or before the API event timestamp, or `null` if none exists. It is resolved on
+read, never copied into an event, and is **not a confirmed post-race rating**.
+Keep `observedAt` visible when presenting this reference. Exact historical
+per-race changes cannot be recovered from result arrows.
+
+`record-rating` saves only explicitly selected, credential-free profile fields
+in a separate JSON file (not the raw authentication response), then stores the
+observation and file path. New database/profile files use mode `0600`, and new
+parent directories use `0700`. Existing permissions are not changed. If database
+saving fails after the profile is written, that profile file remains available.
+Protect results JSON too: it contains other drivers' names and Steam IDs.
+
+See [SQLite設計と運用](docs/storage.ja.md) for the schema, indexes, timestamp
+semantics, and migration/backup rules.
 
 ## Development
 
