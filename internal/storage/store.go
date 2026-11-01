@@ -78,12 +78,6 @@ func upsertPlayer(ctx context.Context, tx *sql.Tx, p Player) (int64, error) {
 // ImportEvents imports a complete input atomically. Reimports replace only the
 // tracked player's session rows; they cannot delete another player's results.
 func (s *Store) ImportEvents(ctx context.Context, player Player, events []EventData) error {
-	if strings.TrimSpace(player.SteamID) == "" {
-		return errors.New("Steam ID is required")
-	}
-	if len(events) == 0 {
-		return nil
-	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -93,6 +87,13 @@ func (s *Store) ImportEvents(ctx context.Context, player Player, events []EventD
 	if err != nil {
 		return err
 	}
+	if err := importEvents(ctx, tx, playerID, events); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func importEvents(ctx context.Context, tx *sql.Tx, playerID int64, events []EventData) error {
 	eventStmt, err := tx.PrepareContext(ctx, `INSERT INTO events(event_id,series_id,event_at,title,event_type,tier,track,track_scene,split_no,official,team_event,raw_path,imported_at)
  VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(event_id) DO UPDATE SET
  series_id=excluded.series_id,event_at=excluded.event_at,title=excluded.title,event_type=excluded.event_type,tier=excluded.tier,
@@ -140,20 +141,12 @@ func (s *Store) ImportEvents(ctx context.Context, player Player, events []EventD
 			}
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 // RecordRating appends an observation; equal values still retain their real
 // observation time. A snapshot is never backdated to a race automatically.
 func (s *Store) RecordRating(ctx context.Context, player Player, r RatingSnapshot) error {
-	if r.ObservedAt.IsZero() || strings.TrimSpace(r.Source) == "" {
-		return errors.New("rating observation requires timestamp and source")
-	}
-	for _, v := range []float64{r.DRElo, r.DRProgress, r.SRRating, r.SRProgress} {
-		if math.IsNaN(v) || math.IsInf(v, 0) {
-			return errors.New("rating values must be finite")
-		}
-	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -163,12 +156,24 @@ func (s *Store) RecordRating(ctx context.Context, player Player, r RatingSnapsho
 	if err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO rating_snapshots(player_id,observed_at,source,raw_path,dr_elo,dr_rank,dr_tier,dr_progress,sr_rating,sr_rank,sr_tier,sr_progress)
- VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, playerID, r.ObservedAt.UnixMicro(), r.Source, r.RawPath, r.DRElo, r.DRRank, r.DRTier, r.DRProgress, r.SRRating, r.SRRank, r.SRTier, r.SRProgress)
-	if err != nil {
+	if err := recordRating(ctx, tx, playerID, r); err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+func recordRating(ctx context.Context, tx *sql.Tx, playerID int64, r RatingSnapshot) error {
+	if r.ObservedAt.IsZero() || strings.TrimSpace(r.Source) == "" {
+		return errors.New("rating observation requires timestamp and source")
+	}
+	for _, v := range []float64{r.DRElo, r.DRProgress, r.SRRating, r.SRProgress} {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return errors.New("rating values must be finite")
+		}
+	}
+	_, err := tx.ExecContext(ctx, `INSERT INTO rating_snapshots(player_id,observed_at,source,raw_path,dr_elo,dr_rank,dr_tier,dr_progress,sr_rating,sr_rank,sr_tier,sr_progress)
+ VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, playerID, r.ObservedAt.UnixMicro(), r.Source, r.RawPath, r.DRElo, r.DRRank, r.DRTier, r.DRProgress, r.SRRating, r.SRRank, r.SRTier, r.SRProgress)
+	return err
 }
 
 const ratingColumns = `snapshot_id,player_id,observed_at,source,raw_path,dr_elo,dr_rank,dr_tier,dr_progress,sr_rating,sr_rank,sr_tier,sr_progress`

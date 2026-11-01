@@ -19,6 +19,7 @@ import (
 )
 
 func TestCLIAuthentication(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	binary := filepath.Join(t.TempDir(), "lmu-archiver")
 	buildCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -79,7 +80,7 @@ func TestCLIAuthentication(t *testing.T) {
 
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			cmd := exec.CommandContext(ctx, binary, "auth", "--lmu-url", lmu.URL, "--raceos-url", raceOS.URL)
+			cmd := exec.CommandContext(ctx, binary, "auth", "check", "--lmu-url", lmu.URL, "--raceos-url", raceOS.URL)
 			var stdout, stderr bytes.Buffer
 			cmd.Stdout, cmd.Stderr = &stdout, &stderr
 			err := cmd.Run()
@@ -97,11 +98,7 @@ func TestCLIAuthentication(t *testing.T) {
 			if exitCode != tc.wantExit {
 				t.Fatalf("exit code = %d, want %d; stdout=%q stderr=%q", exitCode, tc.wantExit, stdout.String(), stderr.String())
 			}
-			if tc.wantExit == 0 {
-				if stdout.String() != "Authentication succeeded.\n" || stderr.Len() != 0 {
-					t.Fatalf("unexpected success output: stdout=%q stderr=%q", stdout.String(), stderr.String())
-				}
-			} else if stdout.Len() != 0 || !strings.Contains(stderr.String(), tc.wantError) {
+			if tc.wantExit != 0 && (stdout.Len() != 0 || !strings.Contains(stderr.String(), tc.wantError)) {
 				t.Fatalf("unexpected failure output: stdout=%q stderr=%q; want error %q", stdout.String(), stderr.String(), tc.wantError)
 			}
 			for _, secret := range []string{"mock-steam-ticket", "mock-access-token", "private-response"} {

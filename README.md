@@ -5,11 +5,11 @@ online racing data under your own control.
 
 ## Status
 
-The Go CLI authenticates with RaceOS (`raceos.gg`), imports existing results JSON
-into a local SQLite archive, and records current DR/SR observations from the
-authenticated profile. JSON queries expose latest races, observation history,
-and read-time reference ratings. Automated results API retrieval is not included.
-Minimal local mocks support authentication without either service.
+`sync` authenticates with RaceOS (`raceos.gg`), downloads race results and the
+current DR/SR profile, saves credential-free JSON captures, and imports them into
+SQLite. `sync --skip-download` replays saved inputs without network access.
+`serve` exposes the archive as a read-only JSON API for future frontends.
+Local mocks support the complete synchronization flow without either service.
 
 ## Goals and data ownership
 
@@ -67,6 +67,9 @@ internal/auth/       LMU ticket acquisition and RaceOS authentication
 internal/httpclient/ Shared HTTP client and API request cooldown
 internal/mockapi/    Service-specific mock HTTP handlers
 internal/ingest/     Own-result parsing and credential-free profile extraction
+internal/archive/   Download and offline capture ingestion
+internal/query/     Shared CLI and HTTP query operations
+internal/api/       Read-only HTTP API
 internal/storage/    SQLite persistence and temporal queries
 db/migrations/      Embedded goose SQL migrations
 bin/                 Local build output (ignored except for .gitkeep)
@@ -96,7 +99,7 @@ trusted local file in a POSIX shell and pass its value explicitly:
 
 ```sh
 . ./.env
-./bin/lmu-archiver auth --lmu-url "$LMU_INT_API"
+./bin/lmu-archiver auth check --lmu-url "$LMU_INT_API"
 ```
 
 ### Accessing the Windows API from another machine (at your own risk)
@@ -161,39 +164,60 @@ and
 
 ## SQLite archive
 
-The archive uses [goose](https://github.com/pressly/goose) SQL migrations embedded
-in the CLI and a pure-Go SQLite driver; no external goose or SQLite executable
-is required. Every archive command creates/migrates `./data/archive.sqlite3` by
-default, relative to the process's current working directory, not the executable.
-Profiles default to `./data/raw`. Override these with `--db` and `--raw-dir`.
-The repository-root `data/` directory is ignored by Git; the `/data/` ignore
-pattern is repository-relative, not a hard-coded filesystem destination.
+The archive uses embedded [goose](https://github.com/pressly/goose) migrations
+and a pure-Go SQLite driver; no external goose or SQLite executable is required.
+`sync` and `db migrate` create/upgrade `./data/archive.sqlite3`. `races`, `ratings`,
+and `serve` open it read-only: they never create files or apply migrations.
+Missing or outdated databases require `sync` or `db migrate` first.
+
+Paths are relative to the process's working directory, not the executable.
+New captures default to `./data/raw`; override paths with `--db` and `--raw-dir`.
+The repository-root `data/` directory is ignored by Git.
 
 ```sh
-# Create or upgrade an archive explicitly.
-./bin/lmu-archiver archive migrate --db data/archive.sqlite3
+# With LMU running: authenticate, download results + current DR/SR, save and ingest.
+./bin/lmu-archiver sync --lmu-url http://192.0.2.10:6937
 
-# Import an existing GET /api/v1/results JSON array for your exact Steam ID.
-# The input file remains separate; it is not copied into the database.
-./bin/lmu-archiver archive import-results \
-  --input /path/to/results.json --steam-id YOUR_STEAM_ID
+# Replay a complete capture. No LMU, authentication, or network connection needed.
+./bin/lmu-archiver sync --skip-download --input /path/to/capture-directory
 
-# Record the current profile and its exact DR/SR, without saving credentials.
-# The Steam ID is resolved from the authenticated profile.
-./bin/lmu-archiver archive record-rating \
-  --lmu-url http://192.0.2.10:6937 --raw-dir data/raw
+# Import a pre-existing results-only JSON array or null page.
+# Without a capture manifest, identity must be supplied and no rating is invented.
+./bin/lmu-archiver sync --skip-download --input /path/to/results.json \
+  --steam-id YOUR_STEAM_ID
 
-# Latest 10 events with your race results, including your other sessions.
-./bin/lmu-archiver archive races --steam-id YOUR_STEAM_ID --limit 10
+# Player selection is automatic when the archive contains exactly one player.
+./bin/lmu-archiver races --limit 10
+./bin/lmu-archiver ratings --from 2026-10-01 --to 2026-11-01
 
-# Rating observations for graphing: inclusive start, exclusive end.
-./bin/lmu-archiver archive ratings --steam-id YOUR_STEAM_ID \
-  --from 2026-10-01T00:00:00Z --to 2026-11-01T00:00:00Z
+# Machine-readable output.
+./bin/lmu-archiver races --json
+./bin/lmu-archiver ratings --json
+
+# Explicit schema administration.
+./bin/lmu-archiver db migrate --db data/archive.sqlite3
 ```
 
-`races` and `ratings` print JSON. `ratings` defaults to the last 30 days.
-Import validates the entire file and commits it atomically; any event missing
-your uniquely identified driver or all of your session results fails the import.
+`races` and `ratings` show tables by default; `--json` returns JSON arrays.
+`sync --json` prints a summary with `steamId`, `capturePath`, `events`, and
+`ratingRecorded` (whether a new observation was inserted). Progress/errors use
+stderr, separate from stdout. Exit codes: 0 success, 1 operational failure,
+2 invalid command arguments or configuration.
+
+Rating ranges include `from` and exclude `to`. Dates use UTC; RFC3339 timestamps
+are also accepted. The default range is the last 30 days. Specify `--steam-id`
+or configure `steamId` when tracking multiple players.
+
+Synchronization requests `daily,specialevent` by default, using 20 results per
+page until an empty array or null response. `--event-types` overrides the
+comma-separated list. `championship` can be explicitly requested, but its API
+support is unverified: an empty response does not prove support. Repeated pages
+fail instead of looping indefinitely. Duplicate event IDs are imported once,
+using the first occurrence.
+
+All results are validated before data is committed. An event missing your
+uniquely identified driver or all of your session results fails the import.
+Events and the current rating observation are committed in one transaction.
 Reimport replaces your sessions without duplicating events or deleting another
 tracked player's results. Other participants remain in the original JSON.
 
@@ -203,15 +227,91 @@ read, never copied into an event, and is **not a confirmed post-race rating**.
 Keep `observedAt` visible when presenting this reference. Exact historical
 per-race changes cannot be recovered from result arrows.
 
-`record-rating` saves only explicitly selected, credential-free profile fields
-in a separate JSON file (not the raw authentication response), then stores the
-observation and file path. New database/profile files use mode `0600`, and new
-parent directories use `0700`. Existing permissions are not changed. If database
-saving fails after the profile is written, that profile file remains available.
-Protect results JSON too: it contains other drivers' names and Steam IDs.
+### Replayable captures
+
+Each online sync creates a private directory containing:
+
+- `manifest.json`: format version 1, stable `captureId`, `steamId`, original
+  `observedAt`, requested `eventTypes`, and relative `results`/`profile` paths.
+- `results.json`: combined, deduplicated result events.
+- `profile.json`: allowlisted identity and exact DR/SR fields, not the raw
+  authentication response.
+- `<event-type>-page-NNNN.json`: individual responses for provenance.
+
+The manifest is written after acquisition finishes. Failed downloads retain
+partial files for inspection, report their location, and do not import data.
+A DB failure retains the complete capture; retry it with `--skip-download`.
+There are no automatic retries or incremental download/resume behavior.
+
+Replay preserves the original rating timestamp and records that capture's
+observation at most once per player. An unchanged rating from a **new** online
+capture is still a new observation. Keep captures immutable and retain their IDs
+when moving or backing them up. Relative manifest paths allow replay into a new
+database after moving the capture directory.
+
+New database/JSON files use mode `0600`; new directories use `0700`.
+Existing permissions are not changed. Tickets and access tokens are never
+persisted. Protect captures too: results contain other drivers' names and Steam IDs.
 
 See the [SQLite reference](docs/sqlite.md) for tables, constraints, indexes,
 query examples, and migration/backup rules.
+
+## Configuration
+
+An optional JSON configuration is loaded from
+`$XDG_CONFIG_HOME/lmu-archiver/config.json` (normally
+`~/.config/lmu-archiver/config.json` on Linux). Use `--config PATH` before the
+command or among its flags to select another file. Explicit flags override
+configuration, which overrides built-in defaults. Unknown keys, invalid JSON,
+and explicitly selected missing files are errors. Paths remain relative to the
+process's working directory, not the config file.
+
+```json
+{
+  "db": "/path/to/archive.sqlite3",
+  "rawDir": "/path/to/raw",
+  "lmuUrl": "http://192.0.2.10:6937",
+  "raceosUrl": "https://raceos.gg",
+  "listen": "127.0.0.1:8080",
+  "eventTypes": ["daily", "specialevent"]
+}
+```
+
+Optionally add `"steamId": "YOUR_STEAM_ID"` for offline results files or
+multi-player archives. Online sync verifies it against the authenticated profile.
+Configuration contains no session credentials; `.env` is not loaded automatically.
+
+## Read-only HTTP API
+
+```sh
+./bin/lmu-archiver serve --listen 127.0.0.1:8080
+curl 'http://127.0.0.1:8080/api/v1/races?limit=10'
+curl 'http://127.0.0.1:8080/api/v1/ratings?from=2026-10-01&to=2026-11-01'
+```
+
+- `GET /api/v1/races`: optional `steam-id`, positive `limit` (default 10).
+- `GET /api/v1/ratings`: optional `steam-id`, `from`, `to`, with the same
+  defaults and time boundaries as the CLI.
+- Successful responses are the same JSON arrays as CLI `--json`. Invalid query
+  inputs return 400, unknown routes 404, unsupported methods 405, and query
+  failures 500. Errors use `{"error":"..."}` without database internals.
+- `serve` does not authenticate, synchronize, migrate, or make upstream requests.
+  A separate `sync` process can update the database while it is running.
+- Ctrl-C/SIGTERM shuts the server down gracefully.
+
+The default listener is loopback. **There is no HTTP authentication, TLS, or
+CORS configuration.** Do not expose it to an untrusted network; access to this
+API grants access to your archive, including identity and source-file paths.
+No frontend or HTTP synchronization endpoint is included.
+
+## Command migration
+
+The previous `archive` command group has been removed. Use `sync` instead of
+`archive record-rating`, `sync --skip-download --input ...` instead of
+`archive import-results`, and top-level `races` / `ratings` for queries.
+`archive migrate` is now `db migrate`; the authentication diagnostic is
+`auth check`. There are no legacy command aliases.
+
 
 ## Development
 
@@ -221,12 +321,12 @@ Requires Go 1.26 or later and Make.
 make build
 ./bin/lmu-archiver --help
 make run ARGS=--help
-./bin/lmu-archiver auth --lmu-url http://192.0.2.10:6937
+./bin/lmu-archiver auth check --lmu-url http://192.0.2.10:6937
 make test
 make test-e2e
 ```
 
-Replace the example IP with your LMU PC's address. On success, `auth` prints only
+Replace the example IP with your LMU PC's address. On success, `auth check` prints
 `Authentication succeeded.` and discards the in-memory session on exit. It does
 not print or save credentials for a later invocation. For real authentication,
 LMU must be running; set `--lmu-url` to the REST API address it listens on.
@@ -256,9 +356,9 @@ The `e2e` build tag keeps these subprocess scenarios separate from ordinary test
 
 ### Local API mocks
 
-The mocks cover only the authentication endpoints currently used by the CLI.
+The mocks cover authentication with a fake profile and paginated race results.
 They use fixed fake credentials, make no upstream requests, and do not emulate
-Steam, token expiry, or data retrieval.
+Steam or token expiry. Daily results contain one race; other types return null.
 
 Start both servers in one terminal:
 
@@ -272,10 +372,9 @@ In another terminal, build and run the real CLI against **both** mock origins:
 
 ```sh
 make build
-./bin/lmu-archiver auth \
+./bin/lmu-archiver sync \
   --lmu-url http://127.0.0.1:6937 \
   --raceos-url http://127.0.0.1:8081
-# Authentication succeeded.
 ```
 
 `make build` also produces `bin/mock-apis`, which can be run directly.
@@ -293,7 +392,8 @@ Supported contracts:
 | Service | Request | Response |
 | --- | --- | --- |
 | LMU | `GET /rest/profile/getAuthSessionTicket` | `{"authSessionTicket":"mock-steam-ticket"}` |
-| RaceOS | `POST /authenticate` with JSON `{"token":"mock-steam-ticket","game":"lmu","platform":"steam"}` | `{"accessToken":"mock-access-token"}` |
+| RaceOS | `POST /authenticate` with JSON `{"token":"mock-steam-ticket","game":"lmu","platform":"steam"}` | `accessToken` and fake player identity/DR/SR |
+| RaceOS | `GET /api/v1/results?eventType=daily&page=1&take=20` with `Game-Authorization: Bearer mock-access-token` | One result event; subsequent pages return null |
 
 RaceOS returns 400 for malformed or trailing JSON and 401 for incorrect or missing
 credentials. Unknown JSON fields are ignored. Unimplemented paths return 404;
@@ -317,7 +417,7 @@ The runtime image is `gcr.io/distroless/static-debian13:nonroot`. It runs as a
 non-root user. To authenticate against LMU on another PC, pass its reachable URL:
 
 ```sh
-docker run --rm lmu-archiver auth --lmu-url http://192.0.2.10:6937
+docker run --rm lmu-archiver auth check --lmu-url http://192.0.2.10:6937
 ```
 
 Inside a container, `127.0.0.1` refers to the container, not the LMU PC.
