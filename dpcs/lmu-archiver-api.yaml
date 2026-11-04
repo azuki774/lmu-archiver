@@ -13,6 +13,7 @@ No authentication, TLS, or CORS is provided; keep the service on a trusted netwo
 | --- | --- | --- |
 | `/api/v1/races` | `limit`: positive integer, default `10` | `Race[]` |
 | `/api/v1/ratings` | `from`, `to`: `YYYY-MM-DD` or RFC3339 timestamp | `RatingSnapshot[]` |
+| `/api/v1/ratings/latest` | `limit`: positive integer, default `10` | `RatingSnapshot[]` |
 
 `races` returns the latest events with a race session, including all stored
 sessions for the account. `limit` counts events; order is `eventAt` descending,
@@ -20,6 +21,14 @@ then `eventId` descending. `ratings` uses `[from, to)` and requires `from < to`;
 defaults are current UTC time minus 30 calendar days and current UTC time,
 independently. Dates mean midnight UTC. Order is `observedAt`, then `snapshotId`,
 both ascending. No pagination is provided. No matches returns `[]`.
+
+`ratings/latest` selects the newest N stored observations across all dates, by
+`observedAt` descending then `snapshotId` descending, and returns those points
+in ascending order of the same keys for charting. The first observation counts
+as a point; later stored changes include any DR/SR value, rank, tier, or progress
+change. Results are observations, not calculated deltas or per-race ratings.
+Fewer than N stored points returns all available points. Plot `observedAt` on
+the x-axis and `drElo` / `srRating` on the y-axis.
 
 ## Response types
 
@@ -106,6 +115,22 @@ Elo/SR deltas. Unchanged rating observations may be omitted during ingestion.
   "source": "authenticate", "rawPath": "/data/raw/capture/profile.json",
   "drElo": 1500.25, "drRank": "Silver", "drTier": 1, "drProgress": 25.5,
   "srRating": 4.25, "srRank": "Gold", "srTier": 2, "srProgress": 80.125
+}]
+```
+
+`GET /api/v1/ratings/latest?limit=2` (oldest selected point first)
+
+```json
+[{
+  "snapshotId": 1, "playerId": 1, "observedAt": "2026-10-02T00:00:00Z",
+  "source": "authenticate", "rawPath": "/data/raw/capture/profile.json",
+  "drElo": 1500.25, "drRank": "Silver", "drTier": 1, "drProgress": 25.5,
+  "srRating": 4.25, "srRank": "Gold", "srTier": 2, "srProgress": 80.125
+}, {
+  "snapshotId": 2, "playerId": 1, "observedAt": "2026-10-03T00:00:00Z",
+  "source": "authenticate", "rawPath": "/data/raw/capture-2/profile.json",
+  "drElo": 1510.25, "drRank": "Silver", "drTier": 1, "drProgress": 26.5,
+  "srRating": 4.5, "srRank": "Gold", "srTier": 2, "srProgress": 82
 }]
 ```
 

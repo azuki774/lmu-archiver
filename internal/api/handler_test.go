@@ -93,3 +93,92 @@ func TestReadAPIFixedPlayerAndObservationBoundaries(t *testing.T) {
 		}
 	}
 }
+
+func TestLatestRatingsSelectsNewestChangesInChartOrder(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "archive.sqlite3")
+	writer, err := storage.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer writer.Close()
+	type point struct {
+		at     time.Time
+		dr, sr float64
+		drTier int
+	}
+	save := func(id string, p point) {
+		t.Helper()
+		if err := writer.RecordRating(ctx, storage.Player{SteamID: id}, storage.RatingSnapshot{
+			ObservedAt: p.at, Source: "authenticate", DRElo: p.dr, SRRating: p.sr, DRTier: p.drTier,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	var points []point
+	for i := range 12 {
+		p := point{at: base.Add(time.Duration(i) * time.Hour), dr: 1000 + float64(i), sr: 4, drTier: 1}
+		save("self", p)
+		points = append(points, p)
+	}
+	save("self", point{at: base.Add(12 * time.Hour), dr: 1011, sr: 4, drTier: 1}) // unchanged: not a point
+	srChange := point{at: base.Add(13 * time.Hour), dr: 1011, sr: 4.25, drTier: 1}
+	tierChange := point{at: srChange.at, dr: 1011, sr: 4.25, drTier: 2}
+	save("self", srChange)
+	save("self", tierChange)
+	points = append(points, srChange, tierChange)
+	late := point{at: base.Add(-time.Hour), dr: 500, sr: 3, drTier: 1}
+	save("self", late) // imported last, but not the latest by observation time
+	save("other", point{at: base.Add(24 * time.Hour), dr: 9999, sr: 5, drTier: 3})
+
+	reader, err := storage.OpenReadOnly(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	handler := NewHandler(query.Service{Store: reader, SteamID: "self"})
+	for _, tc := range []struct {
+		path string
+		want []point
+	}{
+		{"/api/v1/ratings/latest?limit=1", []point{tierChange}},
+		{"/api/v1/ratings/latest?limit=3&steam-id=other", points[len(points)-3:]},
+		{"/api/v1/ratings/latest?limit=20", append([]point{late}, points...)},
+	} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, tc.path, nil))
+		if response.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", tc.path, response.Code, response.Body.String())
+		}
+		var got []storage.RatingSnapshot
+		if err := json.Unmarshal(response.Body.Bytes(), &got); err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != len(tc.want) {
+			t.Fatalf("%s: got %d observations, want %d", tc.path, len(got), len(tc.want))
+		}
+		for i, want := range tc.want {
+			if !got[i].ObservedAt.Equal(want.at) || got[i].DRElo != want.dr || got[i].SRRating != want.sr || got[i].DRTier != want.drTier {
+				t.Fatalf("%s: observation %d = %+v, want %+v", tc.path, i, got[i], want)
+			}
+		}
+	}
+	empty := httptest.NewRecorder()
+	NewHandler(query.Service{Store: reader, SteamID: "missing"}).ServeHTTP(
+		empty, httptest.NewRequest(http.MethodGet, "/api/v1/ratings/latest", nil))
+	var noRatings []storage.RatingSnapshot
+	if empty.Code != http.StatusOK || json.Unmarshal(empty.Body.Bytes(), &noRatings) != nil || noRatings == nil || len(noRatings) != 0 {
+		t.Fatalf("empty history: %d %s", empty.Code, empty.Body.String())
+	}
+	for _, limit := range []string{"0", "-1", "invalid", "999999999999999999999"} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/ratings/latest?limit="+limit, nil))
+		var body struct {
+			Error string `json:"error"`
+		}
+		if response.Code != http.StatusBadRequest || json.Unmarshal(response.Body.Bytes(), &body) != nil || body.Error == "" {
+			t.Fatalf("invalid limit %q: %d %s", limit, response.Code, response.Body.String())
+		}
+	}
+}

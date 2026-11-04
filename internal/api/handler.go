@@ -48,6 +48,9 @@ func NewHandler(service query.Service) http.Handler {
 		q := r.URL.Query()
 		return service.Ratings(r.Context(), "", q.Get("from"), q.Get("to"))
 	})
+	register("/api/v1/ratings/latest", func(r *http.Request) (any, error) {
+		return service.LatestRatings(r.Context(), "", r.URL.Query().Get("limit"))
+	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { writeError(w, http.StatusNotFound, "not found") })
 	return mux
 }

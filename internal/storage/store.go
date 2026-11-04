@@ -227,6 +227,31 @@ func (s *Store) Ratings(ctx context.Context, steamID string, from, to time.Time)
 	return results, rows.Err()
 }
 
+// LatestRatings selects the newest observations, then returns them oldest first.
+func (s *Store) LatestRatings(ctx context.Context, steamID string, limit int) ([]RatingSnapshot, error) {
+	if steamID == "" || limit <= 0 {
+		return nil, errors.New("Steam ID and a positive observation limit are required")
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT `+ratingColumns+` FROM (
+ SELECT `+ratingColumns+` FROM rating_snapshots
+ WHERE player_id=(SELECT player_id FROM players WHERE steam_id=?)
+ ORDER BY observed_at DESC,snapshot_id DESC LIMIT ?
+) ORDER BY observed_at,snapshot_id`, steamID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	results := []RatingSnapshot{}
+	for rows.Next() {
+		r, err := scanRating(rows)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
+}
+
 // Stored timestamps are integral microseconds. Ceiling both boundaries preserves
 // [from,to) comparisons even when a consumer supplies nanosecond precision.
 func ceilingMicro(at time.Time) int64 {

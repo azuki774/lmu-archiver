@@ -66,6 +66,21 @@ func (s Service) Ratings(ctx context.Context, id, fromText, toText string) ([]st
 	return s.Store.Ratings(ctx, id, from, to)
 }
 
+func (s Service) LatestRatings(ctx context.Context, id, limitText string) ([]storage.RatingSnapshot, error) {
+	if limitText == "" {
+		limitText = "10"
+	}
+	limit, err := strconv.Atoi(limitText)
+	if err != nil || limit <= 0 {
+		return nil, &InputError{Message: "limit must be a positive integer"}
+	}
+	id, err = s.player(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return s.Store.LatestRatings(ctx, id, limit)
+}
+
 func parseTime(text string, fallback time.Time) (time.Time, error) {
 	if text == "" {
 		return fallback, nil
