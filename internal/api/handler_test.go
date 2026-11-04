@@ -94,7 +94,7 @@ func TestReadAPIFixedPlayerAndObservationBoundaries(t *testing.T) {
 	}
 }
 
-func TestLatestRatingsSelectsNewestChangesInChartOrder(t *testing.T) {
+func TestRatingsLimitSelectsNewestChangesInChartOrder(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "archive.sqlite3")
 	writer, err := storage.Open(ctx, path)
@@ -142,9 +142,9 @@ func TestLatestRatingsSelectsNewestChangesInChartOrder(t *testing.T) {
 		path string
 		want []point
 	}{
-		{"/api/v1/ratings/latest?limit=1", []point{tierChange}},
-		{"/api/v1/ratings/latest?limit=3&steam-id=other", points[len(points)-3:]},
-		{"/api/v1/ratings/latest?limit=20", append([]point{late}, points...)},
+		{"/api/v1/ratings?limit=1", []point{tierChange}},
+		{"/api/v1/ratings?limit=3&steam-id=other", points[len(points)-3:]},
+		{"/api/v1/ratings?limit=20", append([]point{late}, points...)},
 	} {
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, tc.path, nil))
@@ -166,19 +166,22 @@ func TestLatestRatingsSelectsNewestChangesInChartOrder(t *testing.T) {
 	}
 	empty := httptest.NewRecorder()
 	NewHandler(query.Service{Store: reader, SteamID: "missing"}).ServeHTTP(
-		empty, httptest.NewRequest(http.MethodGet, "/api/v1/ratings/latest", nil))
+		empty, httptest.NewRequest(http.MethodGet, "/api/v1/ratings?limit=3", nil))
 	var noRatings []storage.RatingSnapshot
 	if empty.Code != http.StatusOK || json.Unmarshal(empty.Body.Bytes(), &noRatings) != nil || noRatings == nil || len(noRatings) != 0 {
 		t.Fatalf("empty history: %d %s", empty.Code, empty.Body.String())
 	}
-	for _, limit := range []string{"0", "-1", "invalid", "999999999999999999999"} {
+	for _, parameters := range []string{
+		"limit=0", "limit=-1", "limit=invalid", "limit=999999999999999999999",
+		"limit=3&from=2026-01-01", "limit=3&to=2026-01-02",
+	} {
 		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/ratings/latest?limit="+limit, nil))
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/ratings?"+parameters, nil))
 		var body struct {
 			Error string `json:"error"`
 		}
 		if response.Code != http.StatusBadRequest || json.Unmarshal(response.Body.Bytes(), &body) != nil || body.Error == "" {
-			t.Fatalf("invalid limit %q: %d %s", limit, response.Code, response.Body.String())
+			t.Fatalf("invalid parameters %q: %d %s", parameters, response.Code, response.Body.String())
 		}
 	}
 }

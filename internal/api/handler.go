@@ -46,10 +46,13 @@ func NewHandler(service query.Service) http.Handler {
 	})
 	register("/api/v1/ratings", func(r *http.Request) (any, error) {
 		q := r.URL.Query()
+		if q.Has("limit") {
+			if q.Has("from") || q.Has("to") {
+				return nil, &query.InputError{Message: "limit cannot be combined with from or to"}
+			}
+			return service.LatestRatings(r.Context(), "", q.Get("limit"))
+		}
 		return service.Ratings(r.Context(), "", q.Get("from"), q.Get("to"))
-	})
-	register("/api/v1/ratings/latest", func(r *http.Request) (any, error) {
-		return service.LatestRatings(r.Context(), "", r.URL.Query().Get("limit"))
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { writeError(w, http.StatusNotFound, "not found") })
 	return mux

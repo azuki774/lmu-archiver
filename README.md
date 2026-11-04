@@ -332,16 +332,15 @@ response types, and JSON examples (Markdown content, despite the `.yaml` suffix)
 ./bin/lmu-archiver serve --listen 127.0.0.1:8080
 curl 'http://127.0.0.1:8080/api/v1/races?limit=10'
 curl 'http://127.0.0.1:8080/api/v1/ratings?from=2026-10-01&to=2026-11-01'
-curl 'http://127.0.0.1:8080/api/v1/ratings/latest?limit=20'
+curl 'http://127.0.0.1:8080/api/v1/ratings?limit=20'
 ```
 
 - `GET /api/v1/races`: positive `limit` (default 10).
-- `GET /api/v1/ratings`: optional `from`, `to`, with the same defaults and time
-  boundaries as the CLI.
-- `GET /api/v1/ratings/latest`: positive `limit` (default 10). Returns up to N
-  latest stored observations, oldest first for charting. The initial observation
-  is returned only if it is among those N points. No date range is required;
-  unchanged checks do not add points.
+- `GET /api/v1/ratings`: use `from`/`to` for the same date-range behavior as the
+  CLI, or `limit=N` for the latest N stored rating observations across all dates,
+  oldest first for charting. `limit` must be positive; an empty value means 10.
+  Combining `limit` with `from` or `to` returns 400. The initial observation is
+  returned only if it is among the selected points; unchanged checks add no points.
 - Successful responses are the same JSON arrays as CLI `--json`. Invalid query
   inputs return 400, unknown routes 404, unsupported methods 405, and query
   failures 500. Errors use `{"error":"..."}` without database internals.
