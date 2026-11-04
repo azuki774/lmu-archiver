@@ -1,0 +1,288 @@
+openapi: 3.1.0
+info:
+  title: LMU Archiver read-only API
+  version: 1.0.0
+  description: |
+    Frontend contract for data already imported into SQLite. Requests never
+    authenticate with RaceOS, download results, migrate, or write to the archive.
+    Populate the database with a separate `sync` command before starting `serve`.
+    A missing or unsupported database prevents server startup, not an HTTP 404.
+    Unknown paths, including trailing-slash variants of the endpoints below,
+    return 404 with {"error":"not found"}, regardless of the request method.
+
+    This API serves one fixed account. At startup, selection precedence is the
+    --steam-id flag, STEAM_ID environment variable, then config steamId.
+    The CLI does not load .env automatically; export it before starting serve.
+    An empty/whitespace-only STEAM_ID clears the config's ID; if no ID is
+    selected, the only player in SQLite is used. With zero or multiple players
+    and no selected Steam ID, startup fails. The resolved ID is fixed for the
+    lifetime of the server,
+    even if other accounts are subsequently imported. A configured ID with no
+    matching data returns 200 with [].
+    Requests cannot select another account: there is no steam-id query parameter
+    or player-list endpoint, and the frontend needs no account-selection UI.
+    The fixed account is not an authentication or authorization mechanism.
+
+    Successful collections are bare JSON arrays, including [] for no matches.
+    Object keys use camelCase; query keys use the spelling documented below.
+    All documented response fields are present; nullable fields use JSON null,
+    not a missing property or a fabricated zero. Other missing upstream text
+    values can be empty strings. Timestamps are RFC3339 UTC with up to six
+    fractional digits. Durations ending in Us are integer microseconds.
+    Treat external identifiers, including Steam IDs, as opaque strings. SQLite
+    playerId and snapshotId are local int64 values, not portable account keys;
+    JavaScript clients must not assume all int64 values fit Number exactly.
+    JavaScript Date retains only milliseconds. Preserve original timestamp
+    strings when using observations as from/to boundaries to avoid truncation.
+
+    There is no HTTP authentication, TLS, or CORS support. The server does not
+    serve frontend assets. Use a trusted reverse proxy to expose the frontend
+    and API on the same origin; cross-origin pages cannot read responses without
+    CORS headers supplied by a proxy. Responses include local source-file paths
+    and player identity. Do not expose this API directly to an untrusted network.
+servers:
+  - url: http://127.0.0.1:8080
+    description: Default local listener; configurable with serve --listen.
+security: []
+paths:
+  /api/v1/races:
+    get:
+      operationId: listRaces
+      summary: List the selected player's latest archived race events
+      description: |
+        Returns events containing at least one race session for this player,
+        newest eventAt first, then eventId descending for ties. limit counts
+        events, not session results. Each event includes all the player's stored
+        sessions (practice, qualifying, warmup, race), ordered by that sequence,
+        then sessionNo lexically and raceNo numerically. Other drivers' results
+        are not returned. No cursor, offset, total count, or older-page endpoint
+        is provided; increasing limit fetches a larger latest-event window.
+      parameters:
+        - name: limit
+          in: query
+          description: Positive event limit. Omitted or empty means 10.
+          schema:
+            type: integer
+            minimum: 1
+            default: 10
+          example: 10
+      responses:
+        '200':
+          description: Latest events; [] when the selected player has no races.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Race'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/ratings:
+    get:
+      operationId: listRatings
+      summary: List the selected player's DR/SR observations in a time range
+      description: |
+        Returns observations ordered by observedAt ascending, then snapshotId
+        ascending for ties. The interval is [from, to): from is inclusive and to
+        is exclusive; from must precede to. These are observed values, not a
+        reconstruction of a rating after every race. Ingestion records the
+        first observation and subsequent value changes, not every sync run.
+        There is no pagination.
+      parameters:
+        - name: from
+          in: query
+          description: |
+            Inclusive boundary. A date means midnight UTC; a timestamp must
+            include Z or a UTC offset. Omitted or empty means the request's
+            current UTC time minus 30 calendar days, independently of `to`.
+          schema:
+            $ref: '#/components/schemas/TimeBoundary'
+          example: '2026-10-01'
+        - name: to
+          in: query
+          description: |
+            Exclusive boundary. A date means midnight UTC; a timestamp must
+            include Z or a UTC offset. Omitted or empty means the current UTC
+            time at the same request. To include all of October, use November 1.
+          schema:
+            $ref: '#/components/schemas/TimeBoundary'
+          example: '2026-11-01'
+      responses:
+        '200':
+          description: Observations; [] when no observations match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RatingSnapshot'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  responses:
+    BadRequest:
+      description: Invalid limit, date, or time range.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: limit must be a positive integer
+    MethodNotAllowed:
+      description: A method other than GET was used on a known endpoint.
+      headers:
+        Allow:
+          required: true
+          schema:
+            type: string
+            const: GET
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: method not allowed
+    InternalError:
+      description: Archive query or response encoding failed; database details are hidden.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: |
+        Unknown route. This response applies to paths other than the two defined
+        endpoints. No race-detail route is defined.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: not found
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error; clients should branch on HTTP status, not wording.
+    TimeBoundary:
+      description: Empty means the parameter's default; otherwise a UTC date or RFC3339 timestamp.
+      anyOf:
+        - type: string
+          const: ''
+        - type: string
+          format: date
+        - type: string
+          format: date-time
+    Race:
+      type: object
+      required: [event, participation, results, referenceRating]
+      properties:
+        event:
+          $ref: '#/components/schemas/Event'
+        participation:
+          $ref: '#/components/schemas/Participation'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionResult'
+        referenceRating:
+          description: |
+            Latest observation for this player at or before event.eventAt, with
+            snapshotId descending to break ties; null if none exists. This is
+            NOT the confirmed post-race rating. Later imports of historical
+            observations can change this value on a subsequent read.
+          anyOf:
+            - $ref: '#/components/schemas/RatingSnapshot'
+            - type: 'null'
+    Event:
+      type: object
+      required: [eventId, seriesId, eventAt, title, eventType, tier, track, trackScene, splitNo, official, teamEvent, rawPath, importedAt]
+      properties:
+        eventId: {type: string}
+        seriesId: {type: string}
+        eventAt: {type: string, format: date-time, description: 'Upstream date field; not confirmed to be the race start or finish time.'}
+        title: {type: string}
+        eventType: {type: string, description: 'Upstream event type, e.g. daily or specialevent; not a closed enum.'}
+        tier: {type: string}
+        track: {type: string}
+        trackScene: {type: string}
+        splitNo: {type: string, description: String preserves leading zeros.}
+        official: {type: boolean}
+        teamEvent: {type: boolean}
+        rawPath: {type: string, description: Absolute source JSON path on the server; not a download URL.}
+        importedAt: {type: string, format: date-time, description: Latest result import time; not the race time.}
+    Participation:
+      type: object
+      description: |
+        The selected player's event-specific identity and ranks from result
+        JSON. Rank/progress fields can be null and are distinct from the exact,
+        non-null profile observations in RatingSnapshot.
+      required: [eventId, playerId, name, carClass, drRank, drTier, drProgress, srRank, srTier, srProgress, drAdjustment, srAdjustment, jokerPlayed]
+      properties:
+        eventId: {type: string}
+        playerId: {type: integer, format: int64}
+        name: {type: string, description: Display name recorded for this event; not an identity key.}
+        carClass: {type: string}
+        drRank: {type: [string, 'null']}
+        drTier: {type: [integer, 'null']}
+        drProgress: {type: [number, 'null']}
+        srRank: {type: [string, 'null']}
+        srTier: {type: [integer, 'null']}
+        srProgress: {type: [number, 'null']}
+        drAdjustment: {type: [integer, 'null'], description: Upstream per-event adjustment indicator; not an exact DR Elo delta.}
+        srAdjustment: {type: [integer, 'null'], description: Upstream per-event adjustment indicator; not an exact SR rating delta.}
+        jokerPlayed: {type: boolean}
+    SessionResult:
+      type: object
+      description: |
+        One session race block for the selected player. Within an event and
+        player, sessionType + sessionNo + raceNo identifies the block. Nullable
+        numbers retain missing upstream values; null must not display as zero.
+        raceNo is the upstream block index, so returned indices may have gaps.
+      required: [eventId, playerId, sessionType, sessionNo, raceNo, position, classPosition, gridPosition, classGridPosition, carType, carClass, carNumber, teamName, completedLaps, bestLapUs, finishTimeUs, finishStatus]
+      properties:
+        eventId: {type: string}
+        playerId: {type: integer, format: int64}
+        sessionType: {type: string, enum: [practice, qualifying, warmup, race]}
+        sessionNo: {type: string, description: String preserves leading zeros.}
+        raceNo: {type: integer, description: One-based race block index within the session.}
+        position: {type: [integer, 'null']}
+        classPosition: {type: [integer, 'null']}
+        gridPosition: {type: [integer, 'null']}
+        classGridPosition: {type: [integer, 'null']}
+        carType: {type: string}
+        carClass: {type: string}
+        carNumber: {type: string, description: String preserves leading zeros.}
+        teamName: {type: string}
+        completedLaps: {type: [integer, 'null']}
+        bestLapUs: {type: [integer, 'null'], format: int64, description: Best lap duration in integer microseconds.}
+        finishTimeUs: {type: [integer, 'null'], format: int64, description: Finish duration in integer microseconds.}
+        finishStatus: {type: string, description: Upstream finish status; not a closed enum.}
+    RatingSnapshot:
+      type: object
+      description: Exact DR/SR values observed at observedAt, not per-race deltas.
+      required: [snapshotId, playerId, observedAt, source, rawPath, drElo, drRank, drTier, drProgress, srRating, srRank, srTier, srProgress]
+      properties:
+        snapshotId: {type: integer, format: int64}
+        playerId: {type: integer, format: int64}
+        observedAt: {type: string, format: date-time}
+        source: {type: string, description: 'Observation source, currently authenticate; not a closed enum.'}
+        rawPath: {type: string, description: Absolute credential-free profile path on the server; not a download URL.}
+        drElo: {type: number}
+        drRank: {type: string}
+        drTier: {type: integer}
+        drProgress: {type: number}
+        srRating: {type: number}
+        srRank: {type: string}
+        srTier: {type: integer}
+        srProgress: {type: number}

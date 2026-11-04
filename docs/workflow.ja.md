@@ -37,4 +37,12 @@ lmu-archiver ratings
 lmu-archiver serve
 ```
 
+HTTP APIの対象はサーバ起動時に1人へ固定する。`serve --steam-id`、
+環境変数 `STEAM_ID`、設定ファイルの `steamId`、DB内の唯一のユーザの順で決まり、
+起動後は変更しない。空の `STEAM_ID` は設定の `steamId` を消し、その値には戻らない。
+`.env` は自動では読まないため、シェルでexportしてから起動する。
+解決後のIDが空でDB内のユーザが0人または複数なら、待ち受け開始前にエラーになる。
+リクエストからのユーザ切り替えはなく、フロントエンドにユーザ選択UIは不要。
+レスポンスとクエリの定義は [OpenAPI](openapi.yaml) を参照。
+
 設定とコマンドの詳細は [README](../README.md)、DBは [SQLite reference](sqlite.md) を参照。

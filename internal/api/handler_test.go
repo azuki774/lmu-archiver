@@ -13,7 +13,7 @@ import (
 	"github.com/azuki774/lmu-archiver/internal/storage"
 )
 
-func TestReadAPIPlayerSelectionAndObservationBoundaries(t *testing.T) {
+func TestReadAPIFixedPlayerAndObservationBoundaries(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "archive.sqlite3")
 	writer, err := storage.Open(ctx, path)
@@ -35,7 +35,7 @@ func TestReadAPIPlayerSelectionAndObservationBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reader.Close()
-	handler := NewHandler(query.Service{Store: reader})
+	handler := NewHandler(query.Service{Store: reader, SteamID: "self"})
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/ratings?from=2026-01-01&to=2026-01-02", nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -69,7 +69,7 @@ func TestReadAPIPlayerSelectionAndObservationBoundaries(t *testing.T) {
 			t.Fatalf("invalid error contract %s: %d %s", tc.path, r.Code, r.Body.String())
 		}
 	}
-	// Another tracked account makes implicit player selection ambiguous.
+	// Importing another account cannot change the server's fixed target.
 	writer, err = storage.Open(ctx, path)
 	if err != nil {
 		t.Fatal(err)
@@ -78,14 +78,18 @@ func TestReadAPIPlayerSelectionAndObservationBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	writer.Close()
-	ambiguous := httptest.NewRecorder()
-	handler.ServeHTTP(ambiguous, httptest.NewRequest("GET", "/api/v1/ratings", nil))
-	if ambiguous.Code != 400 {
-		t.Fatalf("ambiguous player silently selected: %d", ambiguous.Code)
-	}
-	explicit := httptest.NewRecorder()
-	handler.ServeHTTP(explicit, httptest.NewRequest("GET", "/api/v1/ratings?steam-id=self&from=2026-01-01&to=2026-01-02", nil))
-	if explicit.Code != 200 {
-		t.Fatalf("explicit player rejected: %d", explicit.Code)
+	for _, suffix := range []string{"", "&steam-id=other"} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest("GET", "/api/v1/ratings?from=2026-01-01&to=2026-01-02"+suffix, nil))
+		if response.Code != http.StatusOK {
+			t.Fatalf("fixed player query failed: %d %s", response.Code, response.Body.String())
+		}
+		var ratings []storage.RatingSnapshot
+		if err := json.Unmarshal(response.Body.Bytes(), &ratings); err != nil {
+			t.Fatal(err)
+		}
+		if len(ratings) != 1 || ratings[0].DRElo != 2 || !ratings[0].ObservedAt.Equal(at) {
+			t.Fatalf("fixed player changed after another account was imported: %+v", ratings)
+		}
 	}
 }

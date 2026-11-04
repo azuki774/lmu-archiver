@@ -45,8 +45,14 @@ immutable and together.
 
 `races` and `ratings` read the archive as tables or `--json`. `serve` exposes the
 same query operations through a read-only HTTP API. Reads never download, create
-a database, or apply migrations. A single-player archive needs no Steam ID flag;
-multiple players require an explicit argument or configuration.
+a database, or apply migrations. The HTTP API serves one account fixed at server
+startup, selected by `serve --steam-id`, environment `STEAM_ID`, config `steamId`,
+or the only player in SQLite. An explicitly blank `STEAM_ID` clears config
+`steamId` rather than falling through to it. Export a trusted `.env` in the shell
+before starting `serve`; it is not loaded automatically. Without a selected ID,
+zero or multiple players prevent startup.
+Requests cannot change this account; the frontend needs no player selector.
+See the [OpenAPI contract](openapi.yaml) for response schemas and query parameters.
 
 The HTTP server has no authentication or TLS. Keep its default loopback binding
 and do not expose it to untrusted networks.

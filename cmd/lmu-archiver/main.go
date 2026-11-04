@@ -45,7 +45,7 @@ Commands:
 
 Use sync --skip-download --input PATH to replay a capture or results JSON offline.
 Run a command with --help for its options.
-URL precedence: flags > RACEOS_URL / LMU_INT_API > JSON config > defaults.`)
+URL/Steam ID precedence: flags > environment (RACEOS_URL, LMU_INT_API, STEAM_ID) > JSON config > defaults.`)
 }
 
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -63,6 +63,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	if value, ok := os.LookupEnv("RACEOS_URL"); ok {
 		cfg.RaceOSURL = value
+	}
+	if value, ok := os.LookupEnv("STEAM_ID"); ok {
+		cfg.SteamID = value
 	}
 	if len(args) == 0 {
 		usage(stdout)
@@ -102,7 +105,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	flags.Usage = func() {
 		fmt.Fprintf(flags.Output(), "Usage: lmu-archiver %s [flags]\n", command)
 		flags.PrintDefaults()
-		fmt.Fprintln(flags.Output(), "  --config PATH\n        Optional JSON config; URL precedence: flags > environment > config > defaults")
+		fmt.Fprintln(flags.Output(), "  --config PATH\n        Optional JSON config; URL/Steam ID precedence: flags > environment > config > defaults")
 	}
 	jsonOutput := false
 	skipDownload := false
@@ -134,7 +137,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		flags.StringVar(&cfg.RaceOSURL, "raceos-url", cfg.RaceOSURL, "Trusted RaceOS HTTP(S) origin; receives the Steam ticket (environment: RACEOS_URL)")
 	}
 	if command != "auth check" && command != "db migrate" {
-		flags.StringVar(&cfg.SteamID, "steam-id", cfg.SteamID, "Steam ID; inferred from authentication or a single-player archive")
+		flags.StringVar(&cfg.SteamID, "steam-id", cfg.SteamID, "Steam ID (environment: STEAM_ID); inferred from authentication or a single-player archive")
 	}
 	if err := flags.Parse(tail); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -244,6 +247,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 }
 
 func serve(ctx context.Context, service query.Service, address string, stderr io.Writer) error {
+	steamID, err := service.Store.ResolveSteamID(ctx, service.SteamID)
+	if err != nil {
+		return err
+	}
+	service.SteamID = steamID
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return err
