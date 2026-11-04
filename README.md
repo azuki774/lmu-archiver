@@ -325,8 +325,8 @@ Configuration contains no session credentials; `.env` is not loaded automaticall
 
 ## Read-only HTTP API
 
-The frontend contract is defined in [OpenAPI 3.1](docs/openapi.yaml), including
-response schemas, nullable fields, units, ordering, the fixed account, and errors.
+See the concise [API reference](dpcs/lmu-archiver-api.yaml) for endpoints,
+response types, and JSON examples (Markdown content, despite the `.yaml` suffix).
 
 ```sh
 ./bin/lmu-archiver serve --listen 127.0.0.1:8080

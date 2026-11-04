@@ -1,0 +1,122 @@
+# LMU Archiver API
+
+Read-only JSON API backed by SQLite. Default base URL: `http://127.0.0.1:8080`.
+The account is fixed at startup: `--steam-id` > exported `STEAM_ID` > config
+`steamId` > the only archived player. A blank `STEAM_ID` clears config `steamId`.
+Without a selected ID, zero/multiple players prevent startup. Export `.env` in
+the shell; it is not loaded automatically. Requests cannot switch accounts.
+No authentication, TLS, or CORS is provided; keep the service on a trusted network.
+
+## Endpoints
+
+| GET path | Optional query parameters | 200 response |
+| --- | --- | --- |
+| `/api/v1/races` | `limit`: positive integer, default `10` | `Race[]` |
+| `/api/v1/ratings` | `from`, `to`: `YYYY-MM-DD` or RFC3339 timestamp | `RatingSnapshot[]` |
+
+`races` returns the latest events with a race session, including all stored
+sessions for the account. `limit` counts events; order is `eventAt` descending,
+then `eventId` descending. `ratings` uses `[from, to)` and requires `from < to`;
+defaults are current UTC time minus 30 calendar days and current UTC time,
+independently. Dates mean midnight UTC. Order is `observedAt`, then `snapshotId`,
+both ascending. No pagination is provided. No matches returns `[]`.
+
+## Response types
+
+TypeScript notation; `Int` means an integer JSON number. All fields are present;
+nullable values use `null`, not zero. Timestamps are UTC RFC3339 strings; `*Us`
+values are integer microseconds. Local IDs are int64 and may exceed JavaScript's
+safe integer range. `rawPath` is a server-local file path, not a download URL.
+
+```typescript
+type Int = number;
+type Timestamp = string;
+type Race = {
+  event: Event; participation: Participation; results: SessionResult[];
+  referenceRating: RatingSnapshot | null;
+};
+type Event = {
+  eventId: string; seriesId: string; eventAt: Timestamp; title: string;
+  eventType: string; tier: string; track: string; trackScene: string;
+  splitNo: string; official: boolean; teamEvent: boolean;
+  rawPath: string; importedAt: Timestamp;
+};
+type Participation = {
+  eventId: string; playerId: Int; name: string; carClass: string;
+  drRank: string | null; drTier: Int | null; drProgress: number | null;
+  srRank: string | null; srTier: Int | null; srProgress: number | null;
+  drAdjustment: Int | null; srAdjustment: Int | null; jokerPlayed: boolean;
+};
+type SessionResult = {
+  eventId: string; playerId: Int;
+  sessionType: "practice" | "qualifying" | "warmup" | "race";
+  sessionNo: string; raceNo: Int;
+  position: Int | null; classPosition: Int | null;
+  gridPosition: Int | null; classGridPosition: Int | null;
+  carType: string; carClass: string; carNumber: string; teamName: string;
+  completedLaps: Int | null; bestLapUs: Int | null; finishTimeUs: Int | null;
+  finishStatus: string;
+};
+type RatingSnapshot = {
+  snapshotId: Int; playerId: Int; observedAt: Timestamp; source: string;
+  rawPath: string; drElo: number; drRank: string; drTier: Int; drProgress: number;
+  srRating: number; srRank: string; srTier: Int; srProgress: number;
+};
+```
+
+`referenceRating` is the latest observation at/before `eventAt`, or `null`, not
+the confirmed post-race rating. `eventAt` is the upstream event timestamp, not a
+confirmed start/finish time. Participation ranks come from results; rating
+snapshots contain exact observed values. Adjustment indicators are not exact
+Elo/SR deltas. Unchanged rating observations may be omitted during ingestion.
+
+## Examples
+
+`GET /api/v1/races?limit=1`
+
+```json
+[{
+  "event": {
+    "eventId": "race-1", "seriesId": "series-1", "eventAt": "2026-10-01T12:00:00Z",
+    "title": "Example race", "eventType": "daily", "tier": "", "track": "Le Mans",
+    "trackScene": "", "splitNo": "01", "official": true, "teamEvent": false,
+    "rawPath": "/data/raw/capture/results.json", "importedAt": "2026-10-02T00:00:00Z"
+  },
+  "participation": {
+    "eventId": "race-1", "playerId": 1, "name": "Driver", "carClass": "LMGT3",
+    "drRank": null, "drTier": null, "drProgress": null,
+    "srRank": null, "srTier": null, "srProgress": null,
+    "drAdjustment": 1, "srAdjustment": -1, "jokerPlayed": false
+  },
+  "results": [{
+    "eventId": "race-1", "playerId": 1, "sessionType": "race", "sessionNo": "01", "raceNo": 1,
+    "position": 2, "classPosition": null, "gridPosition": 3, "classGridPosition": null,
+    "carType": "", "carClass": "LMGT3", "carNumber": "007", "teamName": "",
+    "completedLaps": 12, "bestLapUs": 99835000, "finishTimeUs": 1200500000, "finishStatus": "Finished"
+  }],
+  "referenceRating": null
+}]
+```
+
+`GET /api/v1/ratings?from=2026-10-01&to=2026-11-01`
+
+```json
+[{
+  "snapshotId": 1, "playerId": 1, "observedAt": "2026-10-02T00:00:00Z",
+  "source": "authenticate", "rawPath": "/data/raw/capture/profile.json",
+  "drElo": 1500.25, "drRank": "Silver", "drTier": 1, "drProgress": 25.5,
+  "srRating": 4.25, "srRank": "Gold", "srTier": 2, "srProgress": 80.125
+}]
+```
+
+## Errors
+
+Errors use `{ "error": string }`: `400` invalid query, `404` unknown path,
+`405` non-GET method on a known endpoint (`Allow: GET`), `500` query/encoding
+failure. A configured account without data returns `200 []`, not `404`.
+
+Example: `GET /api/v1/races?limit=0` returns `400`:
+
+```json
+{"error":"limit must be a positive integer"}
+```
