@@ -325,7 +325,7 @@ Configuration contains no session credentials; `.env` is not loaded automaticall
 
 ## Read-only HTTP API
 
-See the concise [API reference](dpcs/lmu-archiver-api.yaml) for endpoints,
+See the concise [API reference](docs/lmu-archiver-api.yaml) for endpoints,
 response types, and JSON examples (Markdown content, despite the `.yaml` suffix).
 
 ```sh

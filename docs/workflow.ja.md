@@ -43,6 +43,6 @@ HTTP APIの対象はサーバ起動時に1人へ固定する。`serve --steam-id
 `.env` は自動では読まないため、シェルでexportしてから起動する。
 解決後のIDが空でDB内のユーザが0人または複数なら、待ち受け開始前にエラーになる。
 リクエストからのユーザ切り替えはなく、フロントエンドにユーザ選択UIは不要。
-型とサンプルを含む簡潔な仕様は [API reference](../dpcs/lmu-archiver-api.yaml) を参照。
+型とサンプルを含む簡潔な仕様は [API reference](lmu-archiver-api.yaml) を参照。
 
 設定とコマンドの詳細は [README](../README.md)、DBは [SQLite reference](sqlite.md) を参照。

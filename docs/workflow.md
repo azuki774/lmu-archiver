@@ -52,7 +52,7 @@ or the only player in SQLite. An explicitly blank `STEAM_ID` clears config
 before starting `serve`; it is not loaded automatically. Without a selected ID,
 zero or multiple players prevent startup.
 Requests cannot change this account; the frontend needs no player selector.
-See the [API reference](../dpcs/lmu-archiver-api.yaml) for response types and examples.
+See the [API reference](lmu-archiver-api.yaml) for response types and examples.
 
 The HTTP server has no authentication or TLS. Keep its default loopback binding
 and do not expose it to untrusted networks.
