@@ -35,9 +35,6 @@ func TestCaptureRecordsRatingTransitionsAndKeepsSkippedCaptureIdentity(t *testin
 	save("unchanged", false)
 	rating.ObservedAt = at.Add(2 * time.Hour)
 	save("returned-to-original", true)
-	// Another player's first observation must not compare against self.
-	player.SteamID = "other"
-	save("other-initial", true)
 	values, err := s.Ratings(ctx, "self", at, at.Add(3*time.Hour))
 	if err != nil {
 		t.Fatal(err)

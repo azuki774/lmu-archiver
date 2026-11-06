@@ -38,7 +38,6 @@ func TestLatestEventsAndAsOfReference(t *testing.T) {
 	s := testStore(t)
 	base := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	self := Player{SteamID: "self", Name: "Driver"}
-	other := Player{SteamID: "other"}
 	events := []EventData{eventData("old", base.Add(-time.Hour)), eventData("a", base), eventData("b", base)}
 	qualifyingOnly := eventData("later-qualifying", base.Add(time.Hour))
 	qualifyingOnly.Results = qualifyingOnly.Results[:1]
@@ -50,7 +49,6 @@ func TestLatestEventsAndAsOfReference(t *testing.T) {
 	record(t, s, self, base, 110)
 	record(t, s, self, base, 120)                  // same timestamp: later observation wins
 	record(t, s, self, base.Add(time.Minute), 999) // never use a future observation
-	record(t, s, other, base, 888)                 // never borrow another player's observation
 	races, err := s.LatestRaces(ctx, "self", 2)
 	if err != nil {
 		t.Fatal(err)
@@ -99,17 +97,13 @@ func TestLatestEventsAndAsOfReference(t *testing.T) {
 	}
 }
 
-func TestAtomicReimportPreservesOtherPlayer(t *testing.T) {
+func TestAtomicReimportReplacesTrackedSessions(t *testing.T) {
 	ctx := context.Background()
 	s := testStore(t)
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	self := Player{SteamID: "self", Name: "Old", RaceOSPlayerID: "persistent-id"}
-	other := Player{SteamID: "other", Name: "Other"}
 	original := eventData("event", at)
 	if err := s.ImportEvents(ctx, self, []EventData{original}); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.ImportEvents(ctx, other, []EventData{original}); err != nil {
 		t.Fatal(err)
 	}
 	updated := eventData("event", at)
@@ -120,19 +114,15 @@ func TestAtomicReimportPreservesOtherPlayer(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	own, err := s.LatestRaces(ctx, "self", 10)
+	races, err := s.LatestRaces(ctx, "self", 10)
 	if err != nil {
 		t.Fatal(err)
 	}
-	theirs, err := s.LatestRaces(ctx, "other", 10)
-	if err != nil {
-		t.Fatal(err)
+	if len(races) != 1 || len(races[0].Results) != 1 || *races[0].Results[0].Position != 1 {
+		t.Fatal("reimport did not replace the tracked result")
 	}
-	if len(own) != 1 || len(own[0].Results) != 1 || *own[0].Results[0].Position != 1 {
-		t.Fatal("reimport did not replace own result")
-	}
-	if len(theirs) != 1 || len(theirs[0].Results) != 2 || *theirs[0].Results[1].Position != 2 {
-		t.Fatal("reimport changed another player")
+	if rows := countRows(t, s, `SELECT count(*) FROM session_results WHERE event_id='event'`); rows != 1 {
+		t.Fatalf("reimport duplicated tracked sessions: %d", rows)
 	}
 	var name, id string
 	if err := s.db.QueryRow(`SELECT display_name,raceos_player_id FROM players WHERE steam_id='self'`).Scan(&name, &id); err != nil {
@@ -147,11 +137,11 @@ func TestAtomicReimportPreservesOtherPlayer(t *testing.T) {
 	if err := s.ImportEvents(ctx, self, []EventData{original, invalid}); err == nil {
 		t.Fatal("invalid position accepted")
 	}
-	own, err = s.LatestRaces(ctx, "self", 10)
+	races, err = s.LatestRaces(ctx, "self", 10)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(own) != 1 || len(own[0].Results) != 1 || *own[0].Results[0].Position != 1 {
+	if len(races) != 1 || len(races[0].Results) != 1 || *races[0].Results[0].Position != 1 {
 		t.Fatal("failed import partially mutated archive")
 	}
 	missing := eventData("missing", at)

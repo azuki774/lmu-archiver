@@ -1,7 +1,8 @@
 # LMU Archiver API
 
 Read-only JSON from SQLite. Default URL: `http://127.0.0.1:8080`.
-One account is fixed at startup, typically via exported `STEAM_ID`.
+One SQLite file stores one Steam account, registered by the first successful sync.
+Imports for another Steam ID fail; use separate SQLite files for other accounts.
 There is no authentication, TLS, or CORS support.
 
 ## Endpoints

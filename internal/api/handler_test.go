@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -13,7 +14,7 @@ import (
 	"github.com/azuki774/lmu-archiver/internal/storage"
 )
 
-func TestReadAPIFixedPlayerAndObservationBoundaries(t *testing.T) {
+func TestReadAPISingleAccountAndObservationBoundaries(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "archive.sqlite3")
 	writer, err := storage.Open(ctx, path)
@@ -35,7 +36,7 @@ func TestReadAPIFixedPlayerAndObservationBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reader.Close()
-	handler := NewHandler(query.Service{Store: reader, SteamID: "self"})
+	handler := NewHandler(query.Service{Store: reader})
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/ratings?from=2026-01-01&to=2026-01-02", nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -69,28 +70,27 @@ func TestReadAPIFixedPlayerAndObservationBoundaries(t *testing.T) {
 			t.Fatalf("invalid error contract %s: %d %s", tc.path, r.Code, r.Body.String())
 		}
 	}
-	// Importing another account cannot change the server's fixed target.
+	// Importing a foreign account must fail without touching the archive.
 	writer, err = storage.Open(ctx, path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := writer.RecordRating(ctx, storage.Player{SteamID: "other"}, storage.RatingSnapshot{ObservedAt: at, Source: "authenticate"}); err != nil {
-		t.Fatal(err)
+	if err := writer.RecordRating(ctx, storage.Player{SteamID: "other"}, storage.RatingSnapshot{ObservedAt: at, Source: "authenticate"}); !errors.Is(err, storage.ErrPlayerMismatch) {
+		writer.Close()
+		t.Fatalf("foreign import = %v, want ErrPlayerMismatch", err)
 	}
 	writer.Close()
-	for _, suffix := range []string{"", "&steam-id=other"} {
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, httptest.NewRequest("GET", "/api/v1/ratings?from=2026-01-01&to=2026-01-02"+suffix, nil))
-		if response.Code != http.StatusOK {
-			t.Fatalf("fixed player query failed: %d %s", response.Code, response.Body.String())
-		}
-		var ratings []storage.RatingSnapshot
-		if err := json.Unmarshal(response.Body.Bytes(), &ratings); err != nil {
-			t.Fatal(err)
-		}
-		if len(ratings) != 1 || ratings[0].DRElo != 2 || !ratings[0].ObservedAt.Equal(at) {
-			t.Fatalf("fixed player changed after another account was imported: %+v", ratings)
-		}
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest("GET", "/api/v1/ratings?from=2026-01-01&to=2026-01-02", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("single account query failed: %d %s", response.Code, response.Body.String())
+	}
+	ratings = nil
+	if err := json.Unmarshal(response.Body.Bytes(), &ratings); err != nil {
+		t.Fatal(err)
+	}
+	if len(ratings) != 1 || ratings[0].DRElo != 2 || !ratings[0].ObservedAt.Equal(at) {
+		t.Fatalf("archive changed after a rejected foreign import: %+v", ratings)
 	}
 }
 
@@ -130,20 +130,19 @@ func TestRatingsLimitSelectsNewestChangesInChartOrder(t *testing.T) {
 	points = append(points, srChange, tierChange)
 	late := point{at: base.Add(-time.Hour), dr: 500, sr: 3, drTier: 1}
 	save("self", late) // imported last, but not the latest by observation time
-	save("other", point{at: base.Add(24 * time.Hour), dr: 9999, sr: 5, drTier: 3})
 
 	reader, err := storage.OpenReadOnly(ctx, path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer reader.Close()
-	handler := NewHandler(query.Service{Store: reader, SteamID: "self"})
+	handler := NewHandler(query.Service{Store: reader})
 	for _, tc := range []struct {
 		path string
 		want []point
 	}{
 		{"/api/v1/ratings?limit=1", []point{tierChange}},
-		{"/api/v1/ratings?limit=3&steam-id=other", points[len(points)-3:]},
+		{"/api/v1/ratings?limit=3", points[len(points)-3:]},
 		{"/api/v1/ratings?limit=20", append([]point{late}, points...)},
 	} {
 		response := httptest.NewRecorder()
@@ -164,8 +163,24 @@ func TestRatingsLimitSelectsNewestChangesInChartOrder(t *testing.T) {
 			}
 		}
 	}
+	// A registered account with no observations has an empty, non-nil history.
+	emptyPath := filepath.Join(t.TempDir(), "empty.sqlite3")
+	emptyWriter, err := storage.Open(ctx, emptyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := emptyWriter.ImportEvents(ctx, storage.Player{SteamID: "empty"}, nil); err != nil {
+		emptyWriter.Close()
+		t.Fatal(err)
+	}
+	emptyWriter.Close()
+	emptyReader, err := storage.OpenReadOnly(ctx, emptyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer emptyReader.Close()
 	empty := httptest.NewRecorder()
-	NewHandler(query.Service{Store: reader, SteamID: "missing"}).ServeHTTP(
+	NewHandler(query.Service{Store: emptyReader}).ServeHTTP(
 		empty, httptest.NewRequest(http.MethodGet, "/api/v1/ratings?limit=3", nil))
 	var noRatings []storage.RatingSnapshot
 	if empty.Code != http.StatusOK || json.Unmarshal(empty.Body.Bytes(), &noRatings) != nil || noRatings == nil || len(noRatings) != 0 {

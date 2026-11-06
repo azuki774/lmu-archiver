@@ -45,7 +45,8 @@ Commands:
 
 Use sync --skip-download --input PATH to replay a capture or results JSON offline.
 Run a command with --help for its options.
-URL/Steam ID precedence: flags > environment (RACEOS_URL, LMU_INT_API, STEAM_ID) > JSON config > defaults.`)
+URL precedence: flags > environment (RACEOS_URL, LMU_INT_API) > JSON config > defaults.
+The archive belongs to the first Steam account imported into its SQLite file; use a separate file for another account.`)
 }
 
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -63,9 +64,6 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	if value, ok := os.LookupEnv("RACEOS_URL"); ok {
 		cfg.RaceOSURL = value
-	}
-	if value, ok := os.LookupEnv("STEAM_ID"); ok {
-		cfg.SteamID = value
 	}
 	if len(args) == 0 {
 		usage(stdout)
@@ -105,11 +103,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	flags.Usage = func() {
 		fmt.Fprintf(flags.Output(), "Usage: lmu-archiver %s [flags]\n", command)
 		flags.PrintDefaults()
-		fmt.Fprintln(flags.Output(), "  --config PATH\n        Optional JSON config; URL/Steam ID precedence: flags > environment > config > defaults")
+		fmt.Fprintln(flags.Output(), "  --config PATH\n        Optional JSON config; URL precedence: flags > environment > config > defaults")
 	}
 	jsonOutput := false
 	skipDownload := false
 	input, from, to := "", "", ""
+	syncSteamID := ""
 	limit := "10"
 	eventTypes := strings.Join(cfg.EventTypes, ",")
 	if command != "auth check" {
@@ -119,6 +118,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	case "sync":
 		flags.BoolVar(&skipDownload, "skip-download", false, "Import saved JSON without contacting LMU or RaceOS")
 		flags.StringVar(&input, "input", "", "Capture directory or results JSON (required with --skip-download)")
+		flags.StringVar(&syncSteamID, "steam-id", "", "Steam ID for results JSON without a manifest, or to assert the authenticated account")
 		flags.StringVar(&cfg.RawDir, "raw-dir", cfg.RawDir, "Directory for new private JSON captures")
 		flags.StringVar(&eventTypes, "event-types", eventTypes, "Comma-separated event types: daily,specialevent; championship is unverified")
 		flags.BoolVar(&jsonOutput, "json", false, "Print a JSON sync summary")
@@ -135,9 +135,6 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if command == "sync" || command == "auth check" {
 		flags.StringVar(&cfg.LMUURL, "lmu-url", cfg.LMUURL, "LMU REST API HTTP origin (environment: LMU_INT_API)")
 		flags.StringVar(&cfg.RaceOSURL, "raceos-url", cfg.RaceOSURL, "Trusted RaceOS HTTP(S) origin; receives the Steam ticket (environment: RACEOS_URL)")
-	}
-	if command != "auth check" && command != "db migrate" {
-		flags.StringVar(&cfg.SteamID, "steam-id", cfg.SteamID, "Steam ID (environment: STEAM_ID); inferred from authentication or a single-player archive")
 	}
 	if err := flags.Parse(tail); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -184,7 +181,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 			return fail(errors.New("--input requires --skip-download"), 2)
 		}
 		fmt.Fprintln(stderr, "Syncing archive...")
-		result, err := archive.Sync(ctx, archive.SyncOptions{DBPath: cfg.DB, RawDir: cfg.RawDir, Input: input, SteamID: cfg.SteamID, LMUURL: cfg.LMUURL, RaceOSURL: cfg.RaceOSURL, SkipDownload: skipDownload, EventTypes: strings.Split(eventTypes, ",")})
+		result, err := archive.Sync(ctx, archive.SyncOptions{DBPath: cfg.DB, RawDir: cfg.RawDir, Input: input, SteamID: syncSteamID, LMUURL: cfg.LMUURL, RaceOSURL: cfg.RaceOSURL, SkipDownload: skipDownload, EventTypes: strings.Split(eventTypes, ",")})
 		if err != nil {
 			return fail(err, 1)
 		}
@@ -204,7 +201,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return fail(err, 1)
 	}
 	defer store.Close()
-	service := query.Service{Store: store, SteamID: cfg.SteamID}
+	service := query.Service{Store: store}
 	if command == "serve" {
 		if err := serve(ctx, service, cfg.Listen, stderr); err != nil {
 			return fail(err, 1)
@@ -212,7 +209,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 	if command == "races" {
-		values, readErr := service.Races(ctx, "", limit)
+		values, readErr := service.Races(ctx, limit)
 		if readErr != nil {
 			var input *query.InputError
 			if errors.As(readErr, &input) {
@@ -226,7 +223,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 			err = printRaces(stdout, values)
 		}
 	} else {
-		values, readErr := service.Ratings(ctx, "", from, to)
+		values, readErr := service.Ratings(ctx, from, to)
 		if readErr != nil {
 			var input *query.InputError
 			if errors.As(readErr, &input) {
@@ -247,11 +244,10 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 }
 
 func serve(ctx context.Context, service query.Service, address string, stderr io.Writer) error {
-	steamID, err := service.Store.ResolveSteamID(ctx, service.SteamID)
-	if err != nil {
+	// Fail before listening when the archive has no sole player.
+	if _, err := service.Store.ResolveSteamID(ctx); err != nil {
 		return err
 	}
-	service.SteamID = steamID
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return err

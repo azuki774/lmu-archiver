@@ -115,9 +115,10 @@ func TestEndpointEnvironmentPrecedence(t *testing.T) {
 	}
 }
 
-func TestSteamIDEnvironmentPrecedence(t *testing.T) {
+func TestEnvironmentCannotSelectForeignUser(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("STEAM_ID", "foreign")
 	ctx := context.Background()
 	db := filepath.Join(dir, "archive.sqlite3")
 	store, err := storage.Open(ctx, db)
@@ -125,58 +126,33 @@ func TestSteamIDEnvironmentPrecedence(t *testing.T) {
 		t.Fatal(err)
 	}
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	for id, value := range map[string]float64{"self": 1500, "other": 2200} {
-		if err := store.RecordRating(ctx, storage.Player{SteamID: id}, storage.RatingSnapshot{ObservedAt: at, Source: "authenticate", DRElo: value}); err != nil {
-			store.Close()
-			t.Fatal(err)
-		}
+	if err := store.RecordRating(ctx, storage.Player{SteamID: "self"}, storage.RatingSnapshot{ObservedAt: at, Source: "authenticate", DRElo: 1500}); err != nil {
+		store.Close()
+		t.Fatal(err)
 	}
 	store.Close()
+	var stdout, stderr bytes.Buffer
+	if code := run(ctx, []string{"ratings", "--db", db, "--from", "2026-01-01", "--to", "2026-01-02", "--json"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit = %d: %s", code, stderr.String())
+	}
+	var ratings []storage.RatingSnapshot
+	if err := json.Unmarshal(stdout.Bytes(), &ratings); err != nil {
+		t.Fatal(err)
+	}
+	if len(ratings) != 1 || ratings[0].DRElo != 1500 {
+		t.Fatalf("environment selected a foreign account: %+v", ratings)
+	}
+}
+
+func TestConfigSteamIDIsRejected(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
 	configPath := filepath.Join(dir, "config.json")
-	body, err := json.Marshal(config{DB: db, SteamID: "self"})
-	if err != nil {
+	if err := os.WriteFile(configPath, []byte(`{"db":"archive.sqlite3","steamId":"foreign"}`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(configPath, body, 0600); err != nil {
-		t.Fatal(err)
-	}
-	for _, tc := range []struct {
-		name, environment, flag string
-		unset                   bool
-		wantCode                int
-		wantElo                 float64
-	}{
-		{name: "config without environment", unset: true, wantElo: 1500},
-		{name: "environment overrides config", environment: "other", wantElo: 2200},
-		{name: "flag overrides environment", environment: "other", flag: "self", wantElo: 1500},
-		{name: "empty environment clears config", wantCode: 2},
-		{name: "flag overrides empty environment", flag: "self", wantElo: 1500},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("STEAM_ID", tc.environment)
-			if tc.unset {
-				if err := os.Unsetenv("STEAM_ID"); err != nil {
-					t.Fatal(err)
-				}
-			}
-			args := []string{"ratings", "--config", configPath, "--from", "2026-01-01", "--to", "2026-01-02", "--json"}
-			if tc.flag != "" {
-				args = append(args, "--steam-id", tc.flag)
-			}
-			var stdout, stderr bytes.Buffer
-			if code := run(ctx, args, &stdout, &stderr); code != tc.wantCode {
-				t.Fatalf("exit = %d, want %d: %s", code, tc.wantCode, stderr.String())
-			}
-			if tc.wantCode != 0 {
-				return
-			}
-			var ratings []storage.RatingSnapshot
-			if err := json.Unmarshal(stdout.Bytes(), &ratings); err != nil {
-				t.Fatal(err)
-			}
-			if len(ratings) != 1 || ratings[0].DRElo != tc.wantElo {
-				t.Fatalf("wrong account selected: %+v", ratings)
-			}
-		})
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), []string{"--config", configPath, "races"}, &stdout, &stderr); code != 2 {
+		t.Fatalf("exit = %d, want config rejection: %s", code, stderr.String())
 	}
 }

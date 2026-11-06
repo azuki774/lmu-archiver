@@ -19,6 +19,10 @@ errors fail the operation. Failed acquisition leaves partial files for inspectio
 but does not import into the database. Database failures retain complete captures
 for offline replay. No automatic retries are performed.
 
+The first successful import registers the SQLite file's sole Steam account.
+Later imports with a different Steam ID fail without changing existing archive
+data. Use a separate `--db` file for each account.
+
 ## Offline replay
 
 ```sh
@@ -38,20 +42,17 @@ immutable and together.
 | --- | --- | --- |
 | Avoid repeating a capture's rating processing | `capture_observations`, keyed by `(capture_id, player_id)` | Uses the manifest's capture ID, not a file-content hash. Result rows are still reimported. |
 | Avoid storing unchanged DR/SR | Compare all eight values with the player's latest stored `rating_snapshots` row at or before the capture's observation time | Insert only on the first observation or a value change. A return to an earlier value (`A → B → A`) is still recorded. |
-| Avoid duplicate event/result rows in SQLite | Primary keys, event/participation upserts, and replacement of the tracked player's session results | Reimport updates existing results without duplicating events or deleting another tracked player's results. |
+| Avoid duplicate event/result rows in SQLite | Primary keys, event/participation upserts, and replacement of session results | Reimport updates the archive owner's results without duplicating events. |
 | Avoid downloading an already stored event again | Not performed | Every online sync fetches the complete result history so that historical corrections can be imported. |
 
 ## Queries and HTTP API
 
 `races` and `ratings` read the archive as tables or `--json`. `serve` exposes the
 same query operations through a read-only HTTP API. Reads never download, create
-a database, or apply migrations. The HTTP API serves one account fixed at server
-startup, selected by `serve --steam-id`, environment `STEAM_ID`, config `steamId`,
-or the only player in SQLite. An explicitly blank `STEAM_ID` clears config
-`steamId` rather than falling through to it. Export a trusted `.env` in the shell
-before starting `serve`; it is not loaded automatically. Without a selected ID,
-zero or multiple players prevent startup.
-Requests cannot change this account; the frontend needs no player selector.
+a database, or apply migrations. The account comes only from the database;
+there is no environment/config/read-command selector. An empty database requires
+`sync` first; legacy databases with multiple Steam users are rejected.
+Requests cannot change the account; the frontend needs no player selector.
 See the [API reference](lmu-archiver-api.yaml) for response types and examples.
 
 The HTTP server has no authentication or TLS. Keep its default loopback binding
