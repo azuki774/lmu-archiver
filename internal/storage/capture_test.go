@@ -19,7 +19,7 @@ func TestImportCaptureRollsBackEventsAndObservationIdentity(t *testing.T) {
 	if _, err := s.ImportCapture(ctx, player, []EventData{eventData("valid", at), invalid}, "capture", &rating); err == nil {
 		t.Fatal("invalid capture accepted")
 	}
-	races, err := s.LatestRaces(ctx, "self", 10)
+	races, err := s.LatestRaces(ctx, "self", RaceOptions{Limit: 10})
 	if err != nil {
 		t.Fatal(err)
 	}

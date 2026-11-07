@@ -94,7 +94,7 @@ func TestOnlineCaptureAndOfflineReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	races, err := store.LatestRaces(ctx, result.SteamID, 30)
+	races, err := store.LatestRaces(ctx, result.SteamID, storage.RaceOptions{Limit: 30})
 	store.Close()
 	if err != nil {
 		t.Fatal(err)
@@ -239,7 +239,7 @@ func TestEverySyncRefreshesOldResultsWithoutDuplicatingUnchangedRating(t *testin
 		t.Fatal(err)
 	}
 	defer store.Close()
-	races, err := store.LatestRaces(ctx, "mock-steam-id", 60)
+	races, err := store.LatestRaces(ctx, "mock-steam-id", storage.RaceOptions{Limit: 60})
 	if err != nil {
 		t.Fatal(err)
 	}

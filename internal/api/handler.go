@@ -43,7 +43,14 @@ func NewHandler(service query.Service) http.Handler {
 	}
 	register("/api/v1/races", func(r *http.Request) (any, error) {
 		q := r.URL.Query()
-		return service.Races(r.Context(), q.Get("limit"))
+		return service.Races(r.Context(), query.RacesInput{
+			From:      q.Get("from"),
+			To:        q.Get("to"),
+			Track:     q.Get("track"),
+			Class:     q.Get("class"),
+			EventType: q.Get("event-type"),
+			Limit:     q.Get("limit"),
+		})
 	})
 	register("/api/v1/ratings", func(r *http.Request) (any, error) {
 		q := r.URL.Query()
