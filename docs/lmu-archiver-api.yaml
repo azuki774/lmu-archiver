@@ -1,0 +1,59 @@
+# LMU Archiver API
+
+Read-only JSON from SQLite. Default URL: `http://127.0.0.1:8080`.
+One SQLite file stores one Steam account, registered by the first successful sync.
+Imports for another Steam ID fail; use separate SQLite files for other accounts.
+There is no authentication, TLS, or CORS support.
+
+## Endpoints
+
+| GET path | Query | Result |
+| --- | --- | --- |
+| `/api/v1/races` | `limit`: positive integer, default 10 | Latest race events, newest first |
+| `/api/v1/ratings` | `limit=N`: positive integer | Latest N stored rating-change observations, oldest first |
+| `/api/v1/ratings` | `from`, `to`: date or RFC3339 string | Observations in `[from, to)`, oldest first |
+
+Without `limit`, ratings default to the last 30 days; dates mean midnight UTC.
+Do not combine `limit` with `from`/`to` (400). An empty `limit` means 10.
+Responses are arrays; no matches returns `[]`. Missing values use `null`.
+The initial rating observation counts as a point; unchanged checks add no point.
+
+## Main response fields
+
+| Response | Field | JSON type |
+| --- | --- | --- |
+| Race | `event`, `participation` | object |
+| Race | `results` | array of session-result objects |
+| Race | `referenceRating` | rating object or null |
+| Rating | `observedAt` | string (UTC RFC3339) |
+| Rating | `drElo`, `srRating` | number |
+
+`referenceRating` is the latest observation at/before the event, not a confirmed
+post-race rating. Session durations ending in `Us` are integer microseconds.
+See [Go response types](../internal/storage/types.go) for the complete fields.
+
+## Examples
+
+Examples show selected fields; actual responses contain additional fields.
+
+`GET /api/v1/races?limit=1`
+
+```json
+[{
+  "event": {"eventId":"race-1","eventAt":"2026-10-01T12:00:00Z","title":"Example race"},
+  "results": [{"sessionType":"race","position":2}],
+  "referenceRating": null
+}]
+```
+
+`GET /api/v1/ratings?limit=2`
+
+```json
+[
+  {"observedAt":"2026-10-02T00:00:00Z","drElo":1500.25,"srRating":4.25},
+  {"observedAt":"2026-10-03T00:00:00Z","drElo":1510.25,"srRating":4.5}
+]
+```
+
+Errors use `{"error":"message"}`: 400 invalid query, 404 unknown path,
+405 unsupported method, 500 query/encoding failure.

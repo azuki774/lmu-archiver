@@ -10,8 +10,10 @@ import (
 	"path/filepath"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/azuki774/lmu-archiver/internal/mockapi"
+	"github.com/azuki774/lmu-archiver/internal/storage"
 )
 
 func TestEndpointEnvironmentPrecedence(t *testing.T) {
@@ -110,5 +112,47 @@ func TestEndpointEnvironmentPrecedence(t *testing.T) {
 				t.Fatalf("ticket/auth calls = %d/%d, want %d each", ticketCalls.Load(), authCalls.Load(), wantCalls)
 			}
 		})
+	}
+}
+
+func TestEnvironmentCannotSelectForeignUser(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("STEAM_ID", "foreign")
+	ctx := context.Background()
+	db := filepath.Join(dir, "archive.sqlite3")
+	store, err := storage.Open(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	if err := store.RecordRating(ctx, storage.Player{SteamID: "self"}, storage.RatingSnapshot{ObservedAt: at, Source: "authenticate", DRElo: 1500}); err != nil {
+		store.Close()
+		t.Fatal(err)
+	}
+	store.Close()
+	var stdout, stderr bytes.Buffer
+	if code := run(ctx, []string{"ratings", "--db", db, "--from", "2026-01-01", "--to", "2026-01-02", "--json"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit = %d: %s", code, stderr.String())
+	}
+	var ratings []storage.RatingSnapshot
+	if err := json.Unmarshal(stdout.Bytes(), &ratings); err != nil {
+		t.Fatal(err)
+	}
+	if len(ratings) != 1 || ratings[0].DRElo != 1500 {
+		t.Fatalf("environment selected a foreign account: %+v", ratings)
+	}
+}
+
+func TestConfigSteamIDIsRejected(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	configPath := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(configPath, []byte(`{"db":"archive.sqlite3","steamId":"foreign"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), []string{"--config", configPath, "races"}, &stdout, &stderr); code != 2 {
+		t.Fatalf("exit = %d, want config rejection: %s", code, stderr.String())
 	}
 }

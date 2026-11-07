@@ -62,9 +62,36 @@ func Open(ctx context.Context, path string) (*Store, error) {
 
 func (s *Store) Close() error { return s.db.Close() }
 
+// ErrPlayerRequired reports an archive that no account has claimed yet.
+var ErrPlayerRequired = errors.New("archive has no tracked player; run sync to import one")
+
+// ErrMultiplePlayers reports a legacy archive shared by several accounts. A
+// database is owned by exactly one Steam account and cannot be split in place.
+var ErrMultiplePlayers = errors.New("archive contains multiple players; use a separate SQLite file per Steam account")
+
+// ErrPlayerMismatch reports a write for an account other than the archive owner.
+var ErrPlayerMismatch = errors.New("archive belongs to a different Steam account; use a separate SQLite file per Steam account")
+
+// upsertPlayer claims an empty archive for its first account and rejects any
+// other account or legacy multi-account archive. It runs inside the write
+// transaction before any row changes, so a rejected import is rolled back
+// without touching archive data or capture markers. Concurrent first imports
+// cannot both win: the loser observes the committed owner or SQLite's lock
+// error and fails without retrying.
 func upsertPlayer(ctx context.Context, tx *sql.Tx, p Player) (int64, error) {
 	if strings.TrimSpace(p.SteamID) == "" {
 		return 0, errors.New("Steam ID is required")
+	}
+	var players int
+	var owner string
+	if err := tx.QueryRowContext(ctx, `SELECT count(*),coalesce(min(steam_id),'') FROM (SELECT steam_id FROM players LIMIT 2)`).Scan(&players, &owner); err != nil {
+		return 0, err
+	}
+	if players > 1 {
+		return 0, ErrMultiplePlayers
+	}
+	if players == 1 && owner != p.SteamID {
+		return 0, fmt.Errorf("%w: owner %q, importing %q", ErrPlayerMismatch, owner, p.SteamID)
 	}
 	var id int64
 	err := tx.QueryRowContext(ctx, `INSERT INTO players(steam_id,raceos_player_id,display_name) VALUES(?,?,?)
@@ -75,8 +102,9 @@ func upsertPlayer(ctx context.Context, tx *sql.Tx, p Player) (int64, error) {
 	return id, err
 }
 
-// ImportEvents imports a complete input atomically. Reimports replace only the
-// tracked player's session rows; they cannot delete another player's results.
+// ImportEvents imports a complete input atomically. The first successful import
+// claims the archive; later imports must use the same account. Reimports replace
+// the tracked account's session rows.
 func (s *Store) ImportEvents(ctx context.Context, player Player, events []EventData) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -145,6 +173,7 @@ func importEvents(ctx context.Context, tx *sql.Tx, playerID int64, events []Even
 }
 
 // RecordRating records a change from the preceding stored DR/SR values.
+// The archive owner is checked before the observation is considered.
 // A snapshot is never backdated to a race automatically.
 func (s *Store) RecordRating(ctx context.Context, player Player, r RatingSnapshot) error {
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -212,6 +241,31 @@ func (s *Store) Ratings(ctx context.Context, steamID string, from, to time.Time)
 	}
 	rows, err := s.db.QueryContext(ctx, `SELECT `+ratingColumns+` FROM rating_snapshots
  WHERE player_id=(SELECT player_id FROM players WHERE steam_id=?) AND observed_at>=? AND observed_at<? ORDER BY observed_at,snapshot_id`, steamID, ceilingMicro(from), ceilingMicro(to))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	results := []RatingSnapshot{}
+	for rows.Next() {
+		r, err := scanRating(rows)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
+}
+
+// LatestRatings selects the newest observations, then returns them oldest first.
+func (s *Store) LatestRatings(ctx context.Context, steamID string, limit int) ([]RatingSnapshot, error) {
+	if steamID == "" || limit <= 0 {
+		return nil, errors.New("Steam ID and a positive observation limit are required")
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT `+ratingColumns+` FROM (
+ SELECT `+ratingColumns+` FROM rating_snapshots
+ WHERE player_id=(SELECT player_id FROM players WHERE steam_id=?)
+ ORDER BY observed_at DESC,snapshot_id DESC LIMIT ?
+) ORDER BY observed_at,snapshot_id`, steamID, limit)
 	if err != nil {
 		return nil, err
 	}

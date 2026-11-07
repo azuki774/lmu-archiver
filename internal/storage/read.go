@@ -14,8 +14,6 @@ import (
 	"github.com/azuki774/lmu-archiver/db/migrations"
 )
 
-var ErrPlayerRequired = errors.New("archive has zero or multiple players; specify --steam-id or configure steamId")
-
 // OpenReadOnly never creates files or applies migrations.
 func OpenReadOnly(ctx context.Context, path string) (*Store, error) {
 	if strings.TrimSpace(path) == "" {
@@ -70,30 +68,26 @@ func OpenReadOnly(ctx context.Context, path string) (*Store, error) {
 	return &Store{db: db}, nil
 }
 
-// ResolveSteamID makes the common single-player archive usable without a flag.
-func (s *Store) ResolveSteamID(ctx context.Context, requested string) (string, error) {
-	requested = strings.TrimSpace(requested)
-	if requested != "" {
-		return requested, nil
-	}
+// ResolveSteamID returns the archive's sole tracked account. No account can be
+// requested or assumed, so a shared archive is never read as one of its users.
+func (s *Store) ResolveSteamID(ctx context.Context) (string, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT steam_id FROM players ORDER BY player_id LIMIT 2`)
 	if err != nil {
 		return "", err
 	}
 	defer rows.Close()
-	var ids []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
 			return "", err
 		}
-		ids = append(ids, id)
-	}
-	if err := rows.Err(); err != nil {
-		return "", err
-	}
-	if len(ids) != 1 {
 		return "", ErrPlayerRequired
 	}
-	return ids[0], nil
+	var id string
+	if err := rows.Scan(&id); err != nil {
+		return "", err
+	}
+	if rows.Next() {
+		return "", ErrMultiplePlayers
+	}
+	return id, rows.Err()
 }

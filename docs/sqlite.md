@@ -56,7 +56,7 @@ not changed. Moving a file does not update its stored path.
 
 | Table | Stored data | Purpose |
 | --- | --- | --- |
-| `players` | Steam ID, RaceOS player ID, and display name | Identify tracked accounts by Steam ID rather than display name. |
+| `players` | Steam ID, RaceOS player ID, and display name | Identify the archive's sole account by Steam ID rather than display name. |
 | `events` | Event timestamp, title, type, track, split, and source-file path | Store shared event information; update existing event IDs when results are reimported. |
 | `event_participations` | A player's name, car class, result-reported ranks, and adjustment indicators for an event | Link a tracked player to an event and keep player-specific information separate from shared event metadata. Adjustment indicators are not exact ELO/SR deltas. |
 | `session_results` | Positions, grid positions, laps, lap/finish times, and finish status | Store the tracked player's performance in each practice, qualifying, warmup, or race block. |
@@ -76,8 +76,11 @@ An event contains shared information. A participation contains one tracked
 player's event-level information. Session results belong to that participation.
 Rating snapshots belong to a player independently of any event.
 
-The importer saves only the explicitly selected Steam ID's rows. The same
-archive can track multiple players by importing each account explicitly.
+Each SQLite file belongs to one Steam account, registered by its first successful
+import. Application write transactions reject a different Steam ID before
+updating any player, event, result, rating, or capture marker. Use separate files
+for different accounts. Existing multi-user files are rejected for imports and
+account resolution; no rows are deleted automatically.
 Other participants remain available in the separate source JSON.
 
 ### `players`
@@ -339,10 +342,11 @@ matching session result. Duplicate matches within a session race block are
 rejected. Names and opponents' records are never substitutes for the tracked
 player's information.
 
-One import transaction upserts the player, events, and participations, and
-replaces only that player's session results for those events. A failed import
-rolls back all changes from that transaction. Other tracked players' results
-are retained. An empty array or null results page imports zero events.
+One import transaction checks the archive's Steam ID before upserting the player,
+events, and participations and replacing session results. A different ID, an
+existing multi-user archive, or any later failure aborts the transaction without
+changing existing archive data. An empty array or null results page imports zero
+events but still checks the account identity.
 
 Online sync saves a complete capture before ingestion. The sanitized profile and
 its original observation timestamp are linked by a versioned manifest. One DB

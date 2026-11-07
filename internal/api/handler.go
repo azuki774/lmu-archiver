@@ -9,6 +9,8 @@ import (
 	"github.com/azuki774/lmu-archiver/internal/query"
 )
 
+// NewHandler serves the single account stored in the archive. Requests cannot
+// select an account; the DB owner is resolved internally.
 func NewHandler(service query.Service) http.Handler {
 	mux := http.NewServeMux()
 	register := func(path string, read func(*http.Request) (any, error)) {
@@ -41,11 +43,17 @@ func NewHandler(service query.Service) http.Handler {
 	}
 	register("/api/v1/races", func(r *http.Request) (any, error) {
 		q := r.URL.Query()
-		return service.Races(r.Context(), q.Get("steam-id"), q.Get("limit"))
+		return service.Races(r.Context(), q.Get("limit"))
 	})
 	register("/api/v1/ratings", func(r *http.Request) (any, error) {
 		q := r.URL.Query()
-		return service.Ratings(r.Context(), q.Get("steam-id"), q.Get("from"), q.Get("to"))
+		if q.Has("limit") {
+			if q.Has("from") || q.Has("to") {
+				return nil, &query.InputError{Message: "limit cannot be combined with from or to"}
+			}
+			return service.LatestRatings(r.Context(), q.Get("limit"))
+		}
+		return service.Ratings(r.Context(), q.Get("from"), q.Get("to"))
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { writeError(w, http.StatusNotFound, "not found") })
 	return mux

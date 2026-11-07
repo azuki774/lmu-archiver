@@ -82,7 +82,7 @@ Dockerfile.mock      Multi-stage Alpine mock API container build
 
 ## Local environment
 
-Copy the reference configuration and adjust the LMU and RaceOS origins for your
+Copy the reference configuration and adjust the LMU/RaceOS origins for your
 environment:
 
 ```sh
@@ -191,7 +191,7 @@ The repository-root `data/` directory is ignored by Git.
 ./bin/lmu-archiver sync --skip-download --input /path/to/results.json \
   --steam-id YOUR_STEAM_ID
 
-# Player selection is automatic when the archive contains exactly one player.
+# Reads use the Steam account registered by the first successful sync.
 ./bin/lmu-archiver races --limit 10
 ./bin/lmu-archiver ratings --from 2026-10-01 --to 2026-11-01
 
@@ -211,8 +211,8 @@ stderr, separate from stdout. Exit codes: 0 success, 1 operational failure,
 2 invalid command arguments or configuration.
 
 Rating ranges include `from` and exclude `to`. Dates use UTC; RFC3339 timestamps
-are also accepted. The default range is the last 30 days. Specify `--steam-id`
-or configure `steamId` when tracking multiple players.
+are also accepted. The default range is the last 30 days. Each SQLite file belongs
+to one Steam account; use separate `--db` paths for different accounts.
 
 Synchronization requests `daily,specialevent` by default, using 20 results per
 page. `--event-types` overrides the comma-separated list. `championship` can be
@@ -248,8 +248,8 @@ not API requests.
 All results are validated before data is committed. An event missing your
 uniquely identified driver or all of your session results fails the import.
 Events, the capture marker, and any changed rating are committed in one transaction.
-Reimport replaces your sessions without duplicating events or deleting another
-tracked player's results. Other participants remain in the original JSON.
+Reimport replaces your sessions without duplicating events. Other participants
+remain in the original JSON.
 
 Each race's `referenceRating` is the latest observation for the same player at
 or before the API event timestamp, or `null` if none exists. It is resolved on
@@ -312,27 +312,53 @@ errors. Paths remain relative to the process's working directory, not the config
 }
 ```
 
-Optionally add `"steamId": "YOUR_STEAM_ID"` for offline results files or
-multi-player archives. Online sync verifies it against the authenticated profile.
+`sync --steam-id` identifies the account in a standalone results-only JSON file,
+or asserts the expected identity for a complete capture/online sync.
+There is no account selector in the environment, JSON config, or read commands.
 Configuration contains no session credentials; `.env` is not loaded automatically.
 
 ## Read-only HTTP API
+
+See the concise [API reference](docs/lmu-archiver-api.yaml) for endpoints,
+response types, and JSON examples (Markdown content, despite the `.yaml` suffix).
 
 ```sh
 ./bin/lmu-archiver serve --listen 127.0.0.1:8080
 curl 'http://127.0.0.1:8080/api/v1/races?limit=10'
 curl 'http://127.0.0.1:8080/api/v1/ratings?from=2026-10-01&to=2026-11-01'
+curl 'http://127.0.0.1:8080/api/v1/ratings?limit=20'
 ```
 
-- `GET /api/v1/races`: optional `steam-id`, positive `limit` (default 10).
-- `GET /api/v1/ratings`: optional `steam-id`, `from`, `to`, with the same
-  defaults and time boundaries as the CLI.
+- `GET /api/v1/races`: positive `limit` (default 10).
+- `GET /api/v1/ratings`: use `from`/`to` for the same date-range behavior as the
+  CLI, or `limit=N` for the latest N stored rating observations across all dates,
+  oldest first for charting. `limit` must be positive; an empty value means 10.
+  Combining `limit` with `from` or `to` returns 400. The initial observation is
+  returned only if it is among the selected points; unchanged checks add no points.
 - Successful responses are the same JSON arrays as CLI `--json`. Invalid query
   inputs return 400, unknown routes 404, unsupported methods 405, and query
   failures 500. Errors use `{"error":"..."}` without database internals.
 - `serve` does not authenticate, synchronize, migrate, or make upstream requests.
   A separate `sync` process can update the database while it is running.
 - Ctrl-C/SIGTERM shuts the server down gracefully.
+
+Each SQLite file belongs to one Steam account. The first successful `sync`
+registers that account; later imports with a different Steam ID fail without
+changing existing archive data. Use a separate `--db` file for another account.
+
+```sh
+./bin/lmu-archiver sync
+./bin/lmu-archiver serve
+```
+
+`serve`, `races`, and `ratings` use the database's sole user. An empty database
+requires `sync` first. Legacy databases containing multiple Steam users are
+rejected rather than silently selecting one or deleting data. The frontend
+needs no account selector.
+
+`serve` does not host frontend assets or send CORS headers. A page on another
+origin cannot read the responses directly; use a trusted reverse proxy to expose
+the frontend and API on one origin. A fixed account does not provide access control.
 
 The default listener is loopback. **There is no HTTP authentication, TLS, or
 CORS configuration.** Do not expose it to an untrusted network; access to this

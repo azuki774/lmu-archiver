@@ -13,7 +13,6 @@ import (
 type config struct {
 	DB         string   `json:"db"`
 	RawDir     string   `json:"rawDir"`
-	SteamID    string   `json:"steamId"`
 	LMUURL     string   `json:"lmuUrl"`
 	RaceOSURL  string   `json:"raceosUrl"`
 	Listen     string   `json:"listen"`
