@@ -473,17 +473,36 @@ Vite **8.3.6**. Node.js is only required for frontend development and builds,
 not for the Go commands or the production static server. See the
 [Node.js release schedule](https://github.com/nodejs/Release/blob/main/schedule.json).
 
-With Node.js and npm installed:
+Run these commands from the repository root. With Node.js and npm installed:
 
 ```sh
-cd frontend
-npm ci
-npm run dev
+npm --prefix frontend ci
+npm --prefix frontend run dev -- --host 127.0.0.1 --port 5173 --strictPort
 ```
 
-Open `http://localhost:5173/`. The page displays `LMU Archiver` and `Hello World`;
-it makes no API requests and needs no Go server or archive. The development
-server is local-only by default; do not expose it to untrusted networks.
+On Linux with rootless Podman, use the official Node image instead of installing
+Node.js on the host:
+
+```sh
+podman run --rm -it --init --userns=keep-id --env HOME=/tmp \
+  -p 127.0.0.1:5173:5173 \
+  -v "$PWD/frontend:/app" -w /app \
+  docker.io/library/node:26.13.0-trixie-slim \
+  sh -c 'npm ci && exec npm run dev -- --host 0.0.0.0 --port 5173 --strictPort'
+```
+
+Both methods serve `http://127.0.0.1:5173/` and stop with Ctrl-C.
+`--strictPort` fails if the port is occupied instead of silently changing URLs.
+The container writes dependencies to the ignored `frontend/node_modules/`;
+its npm cache stays in the temporary container, and host file ownership is preserved.
+The container's `0.0.0.0` listener is published only on the host's loopback address.
+
+Check that `LMU Archiver` and `Hello World` appear, the browser console has no
+errors, and JavaScript/CSS requests succeed in the Network panel. Editing
+`frontend/src/` updates the page without a manual reload. The page currently
+makes no API requests and needs no Go server or archive.
+Loopback URLs refer to the machine running the server; use SSH port forwarding
+when running it remotely rather than exposing Vite to the network.
 
 From the repository root:
 
@@ -654,6 +673,11 @@ docker build -t lmu-archiver-frontend frontend
 docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   -p 127.0.0.1:18080:8080 lmu-archiver-frontend
 ```
+
+These commands also work with `podman` in place of `docker`. Unlike the Vite
+development server, nginx serves a fixed build: rebuild the image and restart
+the container after editing frontend sources. Stop the foreground container
+with Ctrl-C.
 
 Open `http://localhost:18080/`. The build uses Node.js **26.13.0** on Debian
 Trixie slim; the runtime uses nginx **1.30.6** Stable on Debian Trixie. Both
