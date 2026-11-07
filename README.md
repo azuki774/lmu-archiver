@@ -477,7 +477,7 @@ Run these commands from the repository root. With Node.js and npm installed:
 
 ```sh
 npm --prefix frontend ci
-npm --prefix frontend run dev -- --host 127.0.0.1 --port 5173 --strictPort
+npm --prefix frontend run dev -- --host 0.0.0.0 --port 5173 --strictPort
 ```
 
 On Linux with rootless Podman, use the official Node image instead of installing
@@ -485,36 +485,38 @@ Node.js on the host:
 
 ```sh
 podman run --rm -it --init --userns=keep-id --env HOME=/tmp \
-  -p 127.0.0.1:5173:5173 \
+  -p 0.0.0.0:5173:5173 \
   -v "$PWD/frontend:/app" -w /app \
   docker.io/library/node:26.13.0-trixie-slim \
   sh -c 'npm ci && exec npm run dev -- --host 0.0.0.0 --port 5173 --strictPort'
 ```
 
-Both methods serve `http://127.0.0.1:5173/` and stop with Ctrl-C.
+Both methods listen on all IPv4 interfaces and stop with Ctrl-C.
+From another machine, open `http://<server-lan-ip>:5173/`, using the server's LAN IP.
 `--strictPort` fails if the port is occupied instead of silently changing URLs.
 The container writes dependencies to the ignored `frontend/node_modules/`;
 its npm cache stays in the temporary container, and host file ownership is preserved.
-The container's `0.0.0.0` listener is published only on the host's loopback address.
+`0.0.0.0` is a listen address, not the address to enter in the browser.
 
 Check that `LMU Archiver` and `Hello World` appear, the browser console has no
 errors, and JavaScript/CSS requests succeed in the Network panel. Editing
 `frontend/src/` updates the page without a manual reload. The page currently
 makes no API requests and needs no Go server or archive.
-Loopback URLs refer to the machine running the server; use SSH port forwarding
-when running it remotely rather than exposing Vite to the network.
+These local web servers provide no authentication or TLS. Use them only on a
+trusted LAN, restrict access with the host firewall, and do not forward their
+ports to the Internet.
 
 From the repository root:
 
 ```sh
 npm --prefix frontend run typecheck
 npm --prefix frontend run build
-npm --prefix frontend run preview
+npm --prefix frontend run preview -- --host 0.0.0.0 --port 4173 --strictPort
 ```
 
 `build` runs the TypeScript checks before generating `frontend/dist/`.
-`preview` is a local-only inspection server at `http://localhost:4173/`, not
-the production server. Direct
+`preview` serves the build at `http://<server-lan-ip>:4173/` for inspection,
+not as a production server. Direct
 dependencies are pinned and `package-lock.json` is committed; CI and containers
 use `npm ci`. Keep the package manager/engine declarations, the lockfile,
 and the Docker base image pins in sync when updating versions.
@@ -671,7 +673,7 @@ Inside a container, `127.0.0.1` refers to the container, not the LMU PC.
 ```sh
 docker build -t lmu-archiver-frontend frontend
 docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
-  -p 127.0.0.1:18080:8080 lmu-archiver-frontend
+  -p 0.0.0.0:18080:8080 lmu-archiver-frontend
 ```
 
 These commands also work with `podman` in place of `docker`. Unlike the Vite
@@ -679,7 +681,7 @@ development server, nginx serves a fixed build: rebuild the image and restart
 the container after editing frontend sources. Stop the foreground container
 with Ctrl-C.
 
-Open `http://localhost:18080/`. The build uses Node.js **26.13.0** on Debian
+Open `http://<server-lan-ip>:18080/` from the other machine. The build uses Node.js **26.13.0** on Debian
 Trixie slim; the runtime uses nginx **1.30.6** Stable on Debian Trixie. Both
 base images are pinned by tag and digest. The runtime runs as UID/GID `101:101`
 on port `8080`, with writable state confined to `/tmp`. Node.js, npm,
