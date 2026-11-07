@@ -28,6 +28,7 @@ type RacesInput struct {
 	Class     string
 	EventType string
 	Limit     string
+	Offset    string
 }
 
 func (s Service) Races(ctx context.Context, input RacesInput) ([]storage.Race, error) {
@@ -38,6 +39,14 @@ func (s Service) Races(ctx context.Context, input RacesInput) ([]storage.Race, e
 	limit, err := strconv.Atoi(limitText)
 	if err != nil || limit <= 0 {
 		return nil, &InputError{Message: "limit must be a positive integer"}
+	}
+	offsetText := input.Offset
+	if offsetText == "" {
+		offsetText = "0"
+	}
+	offset, err := strconv.Atoi(offsetText)
+	if err != nil || offset < 0 {
+		return nil, &InputError{Message: "offset must be a non-negative integer"}
 	}
 	var from, to *time.Time
 	if input.From != "" {
@@ -63,6 +72,7 @@ func (s Service) Races(ctx context.Context, input RacesInput) ([]storage.Race, e
 	}
 	return s.Store.LatestRaces(ctx, steamID, storage.RaceOptions{
 		Limit:     limit,
+		Offset:    offset,
 		From:      from,
 		To:        to,
 		Track:     input.Track,

@@ -111,6 +111,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	syncSteamID := ""
 	track, class, raceEventType := "", "", ""
 	limit := "10"
+	offset := "0"
 	eventTypes := strings.Join(cfg.EventTypes, ",")
 	if command != "auth check" {
 		flags.StringVar(&cfg.DB, "db", cfg.DB, "SQLite archive path")
@@ -127,6 +128,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		flags.StringVar(&cfg.Listen, "listen", cfg.Listen, "HTTP listen address; no authentication or TLS is provided")
 	case "races":
 		flags.StringVar(&limit, "limit", "10", "Maximum number of race events")
+		flags.StringVar(&offset, "offset", "0", "Number of race events to skip before applying --limit")
 		flags.StringVar(&from, "from", "", "Inclusive timestamp: YYYY-MM-DD (UTC) or RFC3339; unbounded by default")
 		flags.StringVar(&to, "to", "", "Exclusive timestamp: YYYY-MM-DD (UTC) or RFC3339; unbounded by default")
 		flags.StringVar(&track, "track", "", "Exact event track name")
@@ -216,7 +218,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	if command == "races" {
 		values, readErr := service.Races(ctx, query.RacesInput{
-			From: from, To: to, Track: track, Class: class, EventType: raceEventType, Limit: limit,
+			From: from, To: to, Track: track, Class: class, EventType: raceEventType, Limit: limit, Offset: offset,
 		})
 		if readErr != nil {
 			var input *query.InputError
