@@ -293,21 +293,53 @@ func ceilingMicro(at time.Time) int64 {
 
 // LatestRaces selects events before joining their sessions. References are
 // resolved within the same read transaction, including observations at Event.At.
-func (s *Store) LatestRaces(ctx context.Context, steamID string, limit int) ([]Race, error) {
-	if steamID == "" || limit <= 0 {
+// Date filters bound the selected events, never the reference observations.
+func (s *Store) LatestRaces(ctx context.Context, steamID string, options RaceOptions) ([]Race, error) {
+	if steamID == "" || options.Limit <= 0 {
 		return nil, errors.New("Steam ID and a positive event limit are required")
 	}
+	if options.From != nil && options.To != nil && !options.From.Before(*options.To) {
+		return nil, errors.New("race options require from before to")
+	}
+	const selectSQL = `SELECT e.event_id,e.series_id,e.event_at,e.title,e.event_type,e.tier,e.track,e.track_scene,e.split_no,e.official,e.team_event,e.raw_path,e.imported_at,
+ p.player_id,p.display_name,p.car_class,p.dr_rank,p.dr_tier,p.dr_progress,p.sr_rank,p.sr_tier,p.sr_progress,p.dr_adjustment,p.sr_adjustment,p.joker_played
+ FROM events e JOIN event_participations p ON p.event_id=e.event_id
+ WHERE p.player_id=(SELECT player_id FROM players WHERE steam_id=?)
+ AND EXISTS(SELECT 1 FROM session_results r WHERE r.event_id=e.event_id AND r.player_id=p.player_id AND r.session_type='race')`
+	var query strings.Builder
+	// Reserve space for every optional predicate and the ordering/limit clause.
+	query.Grow(len(selectSQL) + 256)
+	query.WriteString(selectSQL)
+	args := make([]any, 0, 7)
+	args = append(args, steamID)
+	if options.From != nil {
+		query.WriteString(` AND e.event_at>=?`)
+		args = append(args, ceilingMicro(*options.From))
+	}
+	if options.To != nil {
+		query.WriteString(` AND e.event_at<?`)
+		args = append(args, ceilingMicro(*options.To))
+	}
+	if options.Track != "" {
+		query.WriteString(` AND e.track=?`)
+		args = append(args, options.Track)
+	}
+	if options.Class != "" {
+		query.WriteString(` AND p.car_class=?`)
+		args = append(args, options.Class)
+	}
+	if options.EventType != "" {
+		query.WriteString(` AND e.event_type=?`)
+		args = append(args, options.EventType)
+	}
+	query.WriteString(` ORDER BY e.event_at DESC,e.event_id DESC LIMIT ?`)
+	args = append(args, options.Limit)
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
-	rows, err := tx.QueryContext(ctx, `SELECT e.event_id,e.series_id,e.event_at,e.title,e.event_type,e.tier,e.track,e.track_scene,e.split_no,e.official,e.team_event,e.raw_path,e.imported_at,
- p.player_id,p.display_name,p.car_class,p.dr_rank,p.dr_tier,p.dr_progress,p.sr_rank,p.sr_tier,p.sr_progress,p.dr_adjustment,p.sr_adjustment,p.joker_played
- FROM events e JOIN event_participations p ON p.event_id=e.event_id
- WHERE p.player_id=(SELECT player_id FROM players WHERE steam_id=?)
- AND EXISTS(SELECT 1 FROM session_results r WHERE r.event_id=e.event_id AND r.player_id=p.player_id AND r.session_type='race')
- ORDER BY e.event_at DESC,e.event_id DESC LIMIT ?`, steamID, limit)
+	rows, err := tx.QueryContext(ctx, query.String(), args...)
 	if err != nil {
 		return nil, err
 	}

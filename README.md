@@ -257,6 +257,46 @@ read, never copied into an event, and is **not a confirmed post-race rating**.
 Keep `observedAt` visible when presenting this reference. Exact historical
 per-race changes cannot be recovered from result arrows.
 
+### Race filters
+
+`races` and `GET /api/v1/races` accept the same optional filters, combined with AND:
+
+| CLI flag / HTTP parameter | Match |
+| --- | --- |
+| `--from` / `from` | Event timestamp at or after this instant |
+| `--to` / `to` | Event timestamp before this instant |
+| `--track` / `track` | Exact `event.track` |
+| `--class` / `class` | Exact selected player's `participation.carClass` |
+| `--event-type` / `event-type` | Exact `event.eventType` |
+
+Dates accept `YYYY-MM-DD` (midnight UTC) or RFC3339 timestamps, including
+fractional seconds and timezone offsets. Either boundary may be omitted; unlike
+`ratings`, races have no default time range. When both are set, `from` must precede
+`to`. For a complete month, use `--from 2026-01-01 --to 2026-02-01`.
+These bounds select event timestamps, not import times or rating observations.
+Malformed dates and equal/reversed bounds are input errors (CLI exit code 2 /
+HTTP 400), not empty successful results. See the
+[SQLite query reference](docs/sqlite.md#filtered-races-with-the-tracked-players-information)
+for sub-microsecond boundary handling. In HTTP queries, encode a timezone's `+`
+as `%2B`, or use `curl --get --data-urlencode 'from=2026-01-01T00:00:00+09:00'`.
+
+String filters are case-sensitive complete values, without trimming or wildcard
+matching. Empty values disable their filter. Unknown values return no matches;
+event types are not restricted to the online downloader's supported list.
+Class means the selected player's event participation, not another driver's class
+or a session-specific vehicle class. Track matches `event.track`, not `trackScene`.
+The singular `--event-type` query filter is separate from `sync --event-types`,
+which selects comma-separated event types to download.
+
+```sh
+./bin/lmu-archiver races --from 2026-01-01 --to 2026-02-01 \
+  --track "Mock Circuit" --class GT3 --event-type daily --limit 20 --json
+```
+
+Filters apply before the event limit. Only events with the selected player's race
+results are included, and each selected event retains its full session results.
+The default limit remains 10; use `--limit` to request a different number of events.
+
 ### Replayable captures
 
 Each online sync creates a private directory containing:
@@ -329,7 +369,8 @@ curl 'http://127.0.0.1:8080/api/v1/ratings?from=2026-10-01&to=2026-11-01'
 curl 'http://127.0.0.1:8080/api/v1/ratings?limit=20'
 ```
 
-- `GET /api/v1/races`: positive `limit` (default 10).
+- `GET /api/v1/races`: positive `limit` (default 10); optional `from`, `to`,
+  `track`, `class`, `event-type` as described in [Race filters](#race-filters).
 - `GET /api/v1/ratings`: use `from`/`to` for the same date-range behavior as the
   CLI, or `limit=N` for the latest N stored rating observations across all dates,
   oldest first for charting. `limit` must be positive; an empty value means 10.

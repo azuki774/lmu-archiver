@@ -9,12 +9,20 @@ There is no authentication, TLS, or CORS support.
 
 | GET path | Query | Result |
 | --- | --- | --- |
-| `/api/v1/races` | `limit`: positive integer, default 10 | Latest race events, newest first |
+| `/api/v1/races` | `limit`: positive integer, default 10; optional `from`, `to`, `track`, `class`, `event-type` | Race events with the account's race results, newest first |
 | `/api/v1/ratings` | `limit=N`: positive integer | Latest N stored rating-change observations, oldest first |
 | `/api/v1/ratings` | `from`, `to`: date or RFC3339 string | Observations in `[from, to)`, oldest first |
 
 Without `limit`, ratings default to the last 30 days; dates mean midnight UTC.
-Do not combine `limit` with `from`/`to` (400). An empty `limit` means 10.
+For ratings, do not combine `limit` with `from`/`to` (400). An empty `limit` means 10.
+Race filters combine with AND. `from` is inclusive, `to` is exclusive, and
+either may be omitted; races have no default date range. Dates are `YYYY-MM-DD`
+(midnight UTC) or RFC3339; malformed dates or equal/reversed bounds return 400.
+`track`, `class`, and `event-type` are exact, case-sensitive values matching the
+event track, the account's participation car class, and the event type. Unknown
+values return `[]`, and empty parameters are ignored. Filters apply before
+`limit`; full sessions and `referenceRating` are not date-filtered. See
+[race filters](../README.md#race-filters) for encoding timezone offsets.
 Responses are arrays; no matches returns `[]`. Missing values use `null`.
 The initial rating observation counts as a point; unchanged checks add no point.
 

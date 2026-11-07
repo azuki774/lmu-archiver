@@ -70,7 +70,7 @@ func TestFirstImportClaimsArchiveForOneAccount(t *testing.T) {
 	if name != "Renamed" || raceos != "raceos-2" {
 		t.Fatalf("same-account metadata not updated: name=%q raceos=%q", name, raceos)
 	}
-	races, err := s.LatestRaces(ctx, "self", 10)
+	races, err := s.LatestRaces(ctx, "self", RaceOptions{Limit: 10})
 	if err != nil || len(races) != 1 || races[0].Event.Title != "updated" || len(races[0].Results) != 1 || *races[0].Results[0].Position != 1 {
 		t.Fatalf("same-account reimport: %+v %v", races, err)
 	}

@@ -217,10 +217,22 @@ The examples use SQLite named parameters. Bind `:steam_id` as TEXT, `:limit` as 
 positive integer, and timestamp parameters as integer Unix microseconds, not
 ISO-formatted text. They illustrate the supported reads without changing data.
 
-### Latest N races with the tracked player's information
+### Filtered races with the tracked player's information
 
 Select N **events with that player's race results**, then join their sessions.
 A practice/qualifying/warmup row must not consume a place in the event limit.
+The example below enables all filters; omit each predicate for an unspecified
+filter, as the application does. All values are bound parameters.
+
+Event time uses `[from_us, to_us)`. The application rounds both supplied
+boundaries up to integer microseconds to preserve comparisons with timestamps
+that include finer precision. A valid interval narrower than a microsecond may
+therefore select no timestamps without being an input error. Neither boundary
+is required, and races have no default period.
+Track and event type match the stored event values exactly;
+class matches the selected player's participation, not a session or another
+player. String comparisons are case-sensitive, with no wildcard interpretation.
+The reference rating lookup remains independent of these event filters.
 
 ```sql
 WITH recent_events AS (
@@ -236,6 +248,11 @@ WITH recent_events AS (
             AND r.player_id = p.player_id
             AND r.session_type = 'race'
       )
+      AND e.event_at >= :from_us
+      AND e.event_at < :to_us
+      AND e.track = :track
+      AND p.car_class = :class
+      AND e.event_type = :event_type
     ORDER BY e.event_at DESC, e.event_id DESC
     LIMIT :limit
 )

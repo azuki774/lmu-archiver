@@ -109,6 +109,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	skipDownload := false
 	input, from, to := "", "", ""
 	syncSteamID := ""
+	track, class, raceEventType := "", "", ""
 	limit := "10"
 	eventTypes := strings.Join(cfg.EventTypes, ",")
 	if command != "auth check" {
@@ -126,6 +127,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		flags.StringVar(&cfg.Listen, "listen", cfg.Listen, "HTTP listen address; no authentication or TLS is provided")
 	case "races":
 		flags.StringVar(&limit, "limit", "10", "Maximum number of race events")
+		flags.StringVar(&from, "from", "", "Inclusive timestamp: YYYY-MM-DD (UTC) or RFC3339; unbounded by default")
+		flags.StringVar(&to, "to", "", "Exclusive timestamp: YYYY-MM-DD (UTC) or RFC3339; unbounded by default")
+		flags.StringVar(&track, "track", "", "Exact event track name")
+		flags.StringVar(&class, "class", "", "Exact tracked player's car class")
+		flags.StringVar(&raceEventType, "event-type", "", "Exact event type, for example daily or specialevent")
 		flags.BoolVar(&jsonOutput, "json", false, "Print JSON instead of a table")
 	case "ratings":
 		flags.StringVar(&from, "from", "", "Inclusive timestamp: YYYY-MM-DD (UTC) or RFC3339; default 30 days ago")
@@ -209,7 +215,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 	if command == "races" {
-		values, readErr := service.Races(ctx, limit)
+		values, readErr := service.Races(ctx, query.RacesInput{
+			From: from, To: to, Track: track, Class: class, EventType: raceEventType, Limit: limit,
+		})
 		if readErr != nil {
 			var input *query.InputError
 			if errors.As(readErr, &input) {

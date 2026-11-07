@@ -100,3 +100,16 @@ type Race struct {
 	Results         []SessionResult `json:"results"`
 	ReferenceRating *RatingSnapshot `json:"referenceRating"`
 }
+
+// RaceOptions filters and bounds the events selected for one tracked player.
+// From is inclusive and To exclusive; nil and empty values do not constrain
+// the selection. Track matches the event, Class the tracked player's
+// participation, and EventType the event, all by exact equality.
+type RaceOptions struct {
+	Limit     int
+	From      *time.Time
+	To        *time.Time
+	Track     string
+	Class     string
+	EventType string
+}

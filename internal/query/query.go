@@ -19,7 +19,19 @@ type Service struct {
 	Store *storage.Store
 }
 
-func (s Service) Races(ctx context.Context, limitText string) ([]storage.Race, error) {
+// RacesInput carries the raw query strings shared by the CLI and HTTP API.
+// Unlike ratings, empty From and To mean unbounded, not a default period.
+type RacesInput struct {
+	From      string
+	To        string
+	Track     string
+	Class     string
+	EventType string
+	Limit     string
+}
+
+func (s Service) Races(ctx context.Context, input RacesInput) ([]storage.Race, error) {
+	limitText := input.Limit
 	if limitText == "" {
 		limitText = "10"
 	}
@@ -27,11 +39,36 @@ func (s Service) Races(ctx context.Context, limitText string) ([]storage.Race, e
 	if err != nil || limit <= 0 {
 		return nil, &InputError{Message: "limit must be a positive integer"}
 	}
+	var from, to *time.Time
+	if input.From != "" {
+		value, err := parseTime(input.From, time.Time{})
+		if err != nil {
+			return nil, &InputError{Message: "from must be YYYY-MM-DD or RFC3339"}
+		}
+		from = &value
+	}
+	if input.To != "" {
+		value, err := parseTime(input.To, time.Time{})
+		if err != nil {
+			return nil, &InputError{Message: "to must be YYYY-MM-DD or RFC3339"}
+		}
+		to = &value
+	}
+	if from != nil && to != nil && !from.Before(*to) {
+		return nil, &InputError{Message: "from must precede to (from inclusive, to exclusive)"}
+	}
 	steamID, err := s.Store.ResolveSteamID(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return s.Store.LatestRaces(ctx, steamID, limit)
+	return s.Store.LatestRaces(ctx, steamID, storage.RaceOptions{
+		Limit:     limit,
+		From:      from,
+		To:        to,
+		Track:     input.Track,
+		Class:     input.Class,
+		EventType: input.EventType,
+	})
 }
 
 func (s Service) Ratings(ctx context.Context, fromText, toText string) ([]storage.RatingSnapshot, error) {

@@ -120,7 +120,7 @@ func TestInvalidRatingRollsBackEventsAndCaptureIdentity(t *testing.T) {
 	if _, err := s.ImportCapture(ctx, player, []EventData{eventData("event", at)}, "capture", &rating); err == nil {
 		t.Fatal("nonfinite rating accepted")
 	}
-	races, err := s.LatestRaces(ctx, "self", 10)
+	races, err := s.LatestRaces(ctx, "self", RaceOptions{Limit: 10})
 	if err != nil || len(races) != 0 {
 		t.Fatalf("rating failure retained event: %+v %v", races, err)
 	}

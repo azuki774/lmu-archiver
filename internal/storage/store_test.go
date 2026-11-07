@@ -49,7 +49,7 @@ func TestLatestEventsAndAsOfReference(t *testing.T) {
 	record(t, s, self, base, 110)
 	record(t, s, self, base, 120)                  // same timestamp: later observation wins
 	record(t, s, self, base.Add(time.Minute), 999) // never use a future observation
-	races, err := s.LatestRaces(ctx, "self", 2)
+	races, err := s.LatestRaces(ctx, "self", RaceOptions{Limit: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestLatestEventsAndAsOfReference(t *testing.T) {
 			t.Fatal("missing values became zero")
 		}
 	}
-	all, err := s.LatestRaces(ctx, "self", 10)
+	all, err := s.LatestRaces(ctx, "self", RaceOptions{Limit: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestLatestEventsAndAsOfReference(t *testing.T) {
 	}
 	// A late historical import must change the reference without rewriting events.
 	record(t, s, self, base.Add(-time.Hour), 70)
-	all, err = s.LatestRaces(ctx, "self", 10)
+	all, err = s.LatestRaces(ctx, "self", RaceOptions{Limit: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestLatestEventsAndAsOfReference(t *testing.T) {
 	if err := s.ImportEvents(ctx, self, []EventData{earlier}); err != nil {
 		t.Fatal(err)
 	}
-	all, err = s.LatestRaces(ctx, "self", 10)
+	all, err = s.LatestRaces(ctx, "self", RaceOptions{Limit: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestAtomicReimportReplacesTrackedSessions(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	races, err := s.LatestRaces(ctx, "self", 10)
+	races, err := s.LatestRaces(ctx, "self", RaceOptions{Limit: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestAtomicReimportReplacesTrackedSessions(t *testing.T) {
 	if err := s.ImportEvents(ctx, self, []EventData{original, invalid}); err == nil {
 		t.Fatal("invalid position accepted")
 	}
-	races, err = s.LatestRaces(ctx, "self", 10)
+	races, err = s.LatestRaces(ctx, "self", RaceOptions{Limit: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +186,7 @@ func TestObservationRangeAndValidation(t *testing.T) {
 	if _, err := s.Ratings(ctx, "self", at, at); err == nil {
 		t.Fatal("empty time interval accepted")
 	}
-	if _, err := s.LatestRaces(ctx, "self", 0); err == nil {
+	if _, err := s.LatestRaces(ctx, "self", RaceOptions{Limit: 0}); err == nil {
 		t.Fatal("nonpositive limit accepted")
 	}
 }
