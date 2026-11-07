@@ -8,7 +8,8 @@ online racing data under your own control.
 `sync` authenticates with RaceOS (`raceos.gg`), downloads all race results and the
 current DR/SR profile, saves credential-free JSON captures, and imports results
 and changed ratings into SQLite. `sync --skip-download` replays saved inputs without network access.
-`serve` exposes the archive as a read-only JSON API for future frontends.
+`serve` exposes the archive as a read-only JSON API. The separate React frontend
+currently displays Hello World; the dashboard and API integration are not implemented.
 Local mocks support the complete synchronization flow without either service.
 
 ## Goals and data ownership
@@ -73,11 +74,13 @@ internal/api/       Read-only HTTP API
 internal/storage/    SQLite persistence and temporal queries
 db/migrations/      Embedded goose SQL migrations
 testdata/mock-api/   Synthetic JSON response templates for mocks and tests
+frontend/            React + TypeScript static frontend
 bin/                 Local build output (ignored except for .gitkeep)
 go.mod               Go module definition
 Makefile             Local build, run, mock, and test commands
 Dockerfile           Multi-stage CLI container build
 Dockerfile.mock      Multi-stage Alpine mock API container build
+frontend/Dockerfile  Multi-stage Node build and non-root nginx static image
 ```
 
 ## Local environment
@@ -429,7 +432,7 @@ the frontend and API on one origin. A fixed account does not provide access cont
 The default listener is loopback. **There is no HTTP authentication, TLS, or
 CORS configuration.** Do not expose it to an untrusted network; access to this
 API grants access to your archive, including identity and source-file paths.
-No frontend or HTTP synchronization endpoint is included.
+`serve` itself includes neither frontend hosting nor an HTTP synchronization endpoint.
 
 ## Command migration
 
@@ -462,15 +465,53 @@ server: the CLI sends the Steam session ticket to that origin.
 
 Tests use local HTTP servers and do not contact LMU or RaceOS.
 
+### Frontend
+
+The frontend uses Node.js **26.13.0** (Active LTS, supported through April 2029)
+and its bundled npm **11.20.0**, React **19.3.1**, TypeScript **7.0.2**, and
+Vite **8.3.6**. Node.js is only required for frontend development and builds,
+not for the Go commands or the production static server. See the
+[Node.js release schedule](https://github.com/nodejs/Release/blob/main/schedule.json).
+
+With Node.js and npm installed:
+
+```sh
+cd frontend
+npm ci
+npm run dev
+```
+
+Open `http://localhost:5173/`. The page displays `LMU Archiver` and `Hello World`;
+it makes no API requests and needs no Go server or archive. The development
+server is local-only by default; do not expose it to untrusted networks.
+
+From the repository root:
+
+```sh
+npm --prefix frontend run typecheck
+npm --prefix frontend run build
+npm --prefix frontend run preview
+```
+
+`build` runs the TypeScript checks before generating `frontend/dist/`.
+`preview` is a local-only inspection server at `http://localhost:4173/`, not
+the production server. Direct
+dependencies are pinned and `package-lock.json` is committed; CI and containers
+use `npm ci`. Keep the package manager/engine declarations, the lockfile,
+and the Docker base image pins in sync when updating versions.
+
 ### Pull request checks
 
-GitHub Actions runs two independent jobs on every pull request, including updates:
+GitHub Actions runs two independent test jobs on every pull request:
 
 - **Go tests** runs `make test` (`go test ./...`).
 - **Mock E2E** runs `make test-e2e`
   (`go test -tags=e2e -count=1 -timeout=2m -v ./e2e`).
 
 Both jobs use `ubuntu-slim`; third-party actions are pinned to full commit SHAs.
+The container workflow builds all three images without publishing them on pull
+requests. Frontend type checks and the Vite build run inside `frontend/Dockerfile`;
+the built frontend image is checked with `nginx -t`.
 
 Each E2E scenario copies `testdata/mock-api/` into its own temporary directory
 before starting its mock servers. Authentication scenarios execute the real CLI
@@ -606,15 +647,40 @@ docker run --rm lmu-archiver auth check --lmu-url http://192.0.2.10:6937
 
 Inside a container, `127.0.0.1` refers to the container, not the LMU PC.
 
+### Frontend container
+
+```sh
+docker build -t lmu-archiver-frontend frontend
+docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+  -p 127.0.0.1:18080:8080 lmu-archiver-frontend
+```
+
+Open `http://localhost:18080/`. The build uses Node.js **26.13.0** on Debian
+Trixie slim; the runtime uses nginx **1.30.6** Stable on Debian Trixie. Both
+base images are pinned by tag and digest. The runtime runs as UID/GID `101:101`
+on port `8080`, with writable state confined to `/tmp`. Node.js, npm,
+`node_modules`, and frontend sources are not copied into the runtime stage.
+
+HTML uses `Cache-Control: no-cache`; hashed assets use a one-year immutable
+cache. Missing files, including unknown `/assets/` paths and `/api` requests,
+return 404 rather than falling back to the page. There is no client-side
+pathname router or API proxy. The image contains no Go API origin or credentials.
+Future same-origin `/api/*` routing belongs to the separate infrastructure
+repository, ashley-infra, not to this nginx image. No cluster or Cloudflare
+changes are included.
+
 ### Published images
 
-GitHub Actions publishes `ghcr.io/azuki774/lmu-archiver` and
-`ghcr.io/azuki774/lmu-archiver-mock` with matching tags:
+GitHub Actions publishes these images with matching tags:
+
+- `ghcr.io/azuki774/lmu-archiver`
+- `ghcr.io/azuki774/lmu-archiver-mock`
+- `ghcr.io/azuki774/lmu-archiver-frontend`
 
 - A push to `master` uses the first seven characters of the commit SHA, for
   example `2e10bb1`.
-- A pushed Git tag uses the exact tag name and also updates `latest` for both
-  images. This includes pre-release tags and tags on older commits.
+- A pushed Git tag uses the exact tag name and also updates `latest` for all
+  three images. This includes pre-release tags and tags on older commits.
 - A manual workflow run on `master` can publish a specified full commit SHA
   reachable from `master`, using the first seven characters as the image tag.
 
@@ -635,6 +701,7 @@ After the publish workflow succeeds:
 ```sh
 docker pull ghcr.io/azuki774/lmu-archiver:1.0.2
 docker pull ghcr.io/azuki774/lmu-archiver-mock:1.0.2
+docker pull ghcr.io/azuki774/lmu-archiver-frontend:1.0.2
 ```
 
 ### Mock API container
