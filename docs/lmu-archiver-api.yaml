@@ -9,7 +9,7 @@ There is no authentication, TLS, or CORS support.
 
 | GET path | Query | Result |
 | --- | --- | --- |
-| `/api/v1/races` | `limit`: positive integer, default 10; optional `from`, `to`, `track`, `class`, `event-type` | Race events with the account's race results, newest first |
+| `/api/v1/races` | `limit`: positive integer, default 10; `offset`: non-negative integer, default 0; optional `from`, `to`, `track`, `class`, `event-type` | Race events with the account's race results, newest first |
 | `/api/v1/ratings` | `limit=N`: positive integer | Latest N stored rating-change observations, oldest first |
 | `/api/v1/ratings` | `from`, `to`: date or RFC3339 string | Observations in `[from, to)`, oldest first |
 
@@ -23,6 +23,11 @@ event track, the account's participation car class, and the event type. Unknown
 values return `[]`, and empty parameters are ignored. Filters apply before
 `limit`; full sessions and `referenceRating` are not date-filtered. See
 [race filters](../README.md#race-filters) for encoding timezone offsets.
+Races apply filters, then `event_at DESC, event_id DESC` ordering, then
+`offset` and `limit` to events, not session rows. Empty `offset` means 0; invalid
+or overflowing numbers return 400. An offset at or beyond the end returns `[]`.
+Pages are independent reads and may shift during sync; see
+[race pagination](../README.md#race-pagination).
 Responses are arrays; no matches returns `[]`. Missing values use `null`.
 The initial rating observation counts as a point; unchanged checks add no point.
 

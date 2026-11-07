@@ -214,8 +214,9 @@ all-history aggregation.
 ## Query examples
 
 The examples use SQLite named parameters. Bind `:steam_id` as TEXT, `:limit` as a
-positive integer, and timestamp parameters as integer Unix microseconds, not
-ISO-formatted text. They illustrate the supported reads without changing data.
+positive integer, `:offset` as a non-negative integer, and timestamp parameters as
+integer Unix microseconds, not ISO-formatted text. They illustrate the supported
+reads without changing data.
 
 ### Filtered races with the tracked player's information
 
@@ -254,7 +255,7 @@ WITH recent_events AS (
       AND p.car_class = :class
       AND e.event_type = :event_type
     ORDER BY e.event_at DESC, e.event_id DESC
-    LIMIT :limit
+    LIMIT :limit OFFSET :offset
 )
 SELECT e.event_id, e.event_at, e.title, e.track,
        p.player_id, p.display_name, p.car_class AS entered_class,
@@ -282,6 +283,12 @@ This returns one row per session race block, so more than N rows may be returned
 Group by `event_id` for an event list. Qualification-only events can be stored but
 are excluded from this list. The CLI returns grouped event objects with a
 `results` array instead of these flat rows.
+
+Offset counts matching events after filtering and ordering, not joined session
+rows; bind 0 for the first page. Events with equal timestamps use event ID
+descending as a tie-breaker. Beyond-end offsets return no events. Pages are
+separate reads, so a concurrent sync can shift their offsets; the application
+does not keep a snapshot across requests or return a total count.
 
 ### Recent rating history for a graph
 

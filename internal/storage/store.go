@@ -295,8 +295,8 @@ func ceilingMicro(at time.Time) int64 {
 // resolved within the same read transaction, including observations at Event.At.
 // Date filters bound the selected events, never the reference observations.
 func (s *Store) LatestRaces(ctx context.Context, steamID string, options RaceOptions) ([]Race, error) {
-	if steamID == "" || options.Limit <= 0 {
-		return nil, errors.New("Steam ID and a positive event limit are required")
+	if steamID == "" || options.Limit <= 0 || options.Offset < 0 {
+		return nil, errors.New("Steam ID, a positive event limit, and a non-negative offset are required")
 	}
 	if options.From != nil && options.To != nil && !options.From.Before(*options.To) {
 		return nil, errors.New("race options require from before to")
@@ -310,7 +310,7 @@ func (s *Store) LatestRaces(ctx context.Context, steamID string, options RaceOpt
 	// Reserve space for every optional predicate and the ordering/limit clause.
 	query.Grow(len(selectSQL) + 256)
 	query.WriteString(selectSQL)
-	args := make([]any, 0, 7)
+	args := make([]any, 0, 8)
 	args = append(args, steamID)
 	if options.From != nil {
 		query.WriteString(` AND e.event_at>=?`)
@@ -332,8 +332,8 @@ func (s *Store) LatestRaces(ctx context.Context, steamID string, options RaceOpt
 		query.WriteString(` AND e.event_type=?`)
 		args = append(args, options.EventType)
 	}
-	query.WriteString(` ORDER BY e.event_at DESC,e.event_id DESC LIMIT ?`)
-	args = append(args, options.Limit)
+	query.WriteString(` ORDER BY e.event_at DESC,e.event_id DESC LIMIT ? OFFSET ?`)
+	args = append(args, options.Limit, options.Offset)
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return nil, err

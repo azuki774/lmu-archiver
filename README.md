@@ -297,6 +297,30 @@ Filters apply before the event limit. Only events with the selected player's rac
 results are included, and each selected event retains its full session results.
 The default limit remains 10; use `--limit` to request a different number of events.
 
+### Race pagination
+
+`races --limit N --offset M` and the API's `limit=N&offset=M` return up to N
+events after skipping M matching events. `limit` must be positive (default 10);
+`offset` must be non-negative (default 0). Empty values use these defaults.
+Non-integers and values that do not fit this binary's `int` type are input errors
+(CLI exit code 2 / HTTP 400).
+
+Filtering happens first, followed by `event_at DESC, event_id DESC` ordering,
+then offset and limit. Sessions do not consume separate page slots. At or beyond
+the end, `races --json` returns `[]` with exit code 0 and the API returns `[]` with
+HTTP 200. The default CLI table instead prints only its header, with exit code 0.
+
+```sh
+./bin/lmu-archiver races --track "Mock Circuit" --limit 20 --offset 20 --json
+curl 'http://127.0.0.1:8080/api/v1/races?limit=20&offset=20'
+```
+
+Advance by the requested limit while keeping the filters and player unchanged.
+A page shorter than the limit is the end; an exact multiple may require one more
+request with no results. JSON responses remain arrays without totals or cursors.
+Each request uses its own read transaction, not a snapshot shared across pages.
+Concurrent synchronization can shift offsets and cause repeated or missed events.
+
 ### Replayable captures
 
 Each online sync creates a private directory containing:
@@ -369,8 +393,9 @@ curl 'http://127.0.0.1:8080/api/v1/ratings?from=2026-10-01&to=2026-11-01'
 curl 'http://127.0.0.1:8080/api/v1/ratings?limit=20'
 ```
 
-- `GET /api/v1/races`: positive `limit` (default 10); optional `from`, `to`,
-  `track`, `class`, `event-type` as described in [Race filters](#race-filters).
+- `GET /api/v1/races`: positive `limit` (default 10), non-negative `offset`
+  (default 0), and optional `from`, `to`, `track`, `class`, `event-type` as
+  described in [Race filters](#race-filters) and [Race pagination](#race-pagination).
 - `GET /api/v1/ratings`: use `from`/`to` for the same date-range behavior as the
   CLI, or `limit=N` for the latest N stored rating observations across all dates,
   oldest first for charting. `limit` must be positive; an empty value means 10.

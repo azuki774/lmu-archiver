@@ -50,6 +50,7 @@ func NewHandler(service query.Service) http.Handler {
 			Class:     q.Get("class"),
 			EventType: q.Get("event-type"),
 			Limit:     q.Get("limit"),
+			Offset:    q.Get("offset"),
 		})
 	})
 	register("/api/v1/ratings", func(r *http.Request) (any, error) {

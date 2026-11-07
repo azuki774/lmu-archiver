@@ -107,6 +107,7 @@ type Race struct {
 // participation, and EventType the event, all by exact equality.
 type RaceOptions struct {
 	Limit     int
+	Offset    int
 	From      *time.Time
 	To        *time.Time
 	Track     string
