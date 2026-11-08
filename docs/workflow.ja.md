@@ -34,6 +34,7 @@ LMUの起動やRaceOSへの接続は不要。ファイルに含まれる結果�
 
 取り込み後は `races` でレース結果、`ratings` でDR/SRの履歴を参照する。
 ほかのアプリケーションから参照する場合は、`serve` で読み取り専用HTTP APIを起動する。
+トラック別の集計とフィルター選択肢は、このHTTP APIでのみ提供する。
 
 ```sh
 lmu-archiver races

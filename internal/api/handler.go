@@ -53,6 +53,19 @@ func NewHandler(service query.Service) http.Handler {
 			Offset:    q.Get("offset"),
 		})
 	})
+	register("/api/v1/stats/tracks", func(r *http.Request) (any, error) {
+		q := r.URL.Query()
+		return service.TrackStats(r.Context(), query.TrackStatsInput{
+			From:      q.Get("from"),
+			To:        q.Get("to"),
+			Track:     q.Get("track"),
+			Class:     q.Get("class"),
+			EventType: q.Get("event-type"),
+		})
+	})
+	register("/api/v1/filters", func(r *http.Request) (any, error) {
+		return service.RaceFilterValues(r.Context())
+	})
 	register("/api/v1/ratings", func(r *http.Request) (any, error) {
 		q := r.URL.Query()
 		if q.Has("limit") {

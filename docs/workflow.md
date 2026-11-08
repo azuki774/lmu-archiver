@@ -47,11 +47,12 @@ immutable and together.
 
 ## Queries and HTTP API
 
-`races` and `ratings` read the archive as tables or `--json`. `serve` exposes the
-same query operations through a read-only HTTP API. Reads never download, create
-a database, or apply migrations. The account comes only from the database;
-there is no environment/config/read-command selector. An empty database requires
-`sync` first; legacy databases with multiple Steam users are rejected.
+`races` and `ratings` read the archive as tables or `--json`. `serve` exposes
+those reads, plus per-track statistics and filter values, through a read-only
+HTTP API. Reads never download, create a database, or apply migrations. The
+account comes only from the database; there is no environment/config/read-command
+selector. An empty database requires `sync` first; legacy databases with multiple
+Steam users are rejected.
 Requests cannot change the account; the frontend needs no player selector.
 See the [API reference](lmu-archiver-api.yaml) for response types and examples.
 

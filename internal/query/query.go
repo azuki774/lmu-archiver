@@ -48,37 +48,74 @@ func (s Service) Races(ctx context.Context, input RacesInput) ([]storage.Race, e
 	if err != nil || offset < 0 {
 		return nil, &InputError{Message: "offset must be a non-negative integer"}
 	}
-	var from, to *time.Time
-	if input.From != "" {
-		value, err := parseTime(input.From, time.Time{})
-		if err != nil {
-			return nil, &InputError{Message: "from must be YYYY-MM-DD or RFC3339"}
-		}
-		from = &value
-	}
-	if input.To != "" {
-		value, err := parseTime(input.To, time.Time{})
-		if err != nil {
-			return nil, &InputError{Message: "to must be YYYY-MM-DD or RFC3339"}
-		}
-		to = &value
-	}
-	if from != nil && to != nil && !from.Before(*to) {
-		return nil, &InputError{Message: "from must precede to (from inclusive, to exclusive)"}
+	options, err := s.raceFilters(input.From, input.To, input.Track, input.Class, input.EventType)
+	if err != nil {
+		return nil, err
 	}
 	steamID, err := s.Store.ResolveSteamID(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return s.Store.LatestRaces(ctx, steamID, storage.RaceOptions{
-		Limit:     limit,
-		Offset:    offset,
-		From:      from,
-		To:        to,
-		Track:     input.Track,
-		Class:     input.Class,
-		EventType: input.EventType,
-	})
+	options.Limit, options.Offset = limit, offset
+	return s.Store.LatestRaces(ctx, steamID, options)
+}
+
+// TrackStatsInput carries the raw filter strings for the per-track
+// aggregation. There is no paging: every matching race is aggregated.
+type TrackStatsInput struct {
+	From      string
+	To        string
+	Track     string
+	Class     string
+	EventType string
+}
+
+// TrackStats aggregates the account's races per track. The filters match
+// Races exactly; the result never depends on list paging.
+func (s Service) TrackStats(ctx context.Context, input TrackStatsInput) ([]storage.TrackStats, error) {
+	options, err := s.raceFilters(input.From, input.To, input.Track, input.Class, input.EventType)
+	if err != nil {
+		return nil, err
+	}
+	steamID, err := s.Store.ResolveSteamID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.Store.TrackStats(ctx, steamID, options)
+}
+
+// RaceFilterValues lists the distinct filter values the account's race
+// history can match, for building filter controls.
+func (s Service) RaceFilterValues(ctx context.Context) (storage.RaceFilterValues, error) {
+	steamID, err := s.Store.ResolveSteamID(ctx)
+	if err != nil {
+		return storage.RaceFilterValues{}, err
+	}
+	return s.Store.RaceFilterValues(ctx, steamID)
+}
+
+// raceFilters validates the filter strings shared by every race selection.
+// Empty strings disable their filter; empty From and To mean unbounded.
+func (s Service) raceFilters(fromText, toText, track, class, eventType string) (storage.RaceOptions, error) {
+	options := storage.RaceOptions{Track: track, Class: class, EventType: eventType}
+	if fromText != "" {
+		value, err := parseTime(fromText, time.Time{})
+		if err != nil {
+			return options, &InputError{Message: "from must be YYYY-MM-DD or RFC3339"}
+		}
+		options.From = &value
+	}
+	if toText != "" {
+		value, err := parseTime(toText, time.Time{})
+		if err != nil {
+			return options, &InputError{Message: "to must be YYYY-MM-DD or RFC3339"}
+		}
+		options.To = &value
+	}
+	if options.From != nil && options.To != nil && !options.From.Before(*options.To) {
+		return options, &InputError{Message: "from must precede to (from inclusive, to exclusive)"}
+	}
+	return options, nil
 }
 
 func (s Service) Ratings(ctx context.Context, fromText, toText string) ([]storage.RatingSnapshot, error) {

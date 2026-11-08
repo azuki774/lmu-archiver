@@ -291,6 +291,41 @@ func ceilingMicro(at time.Time) int64 {
 	return value
 }
 
+// raceSelection is the shared base of every race query: the tracked player's
+// events that have at least one own race session.
+const raceSelection = ` FROM events e JOIN event_participations p ON p.event_id=e.event_id
+ WHERE p.player_id=(SELECT player_id FROM players WHERE steam_id=?)
+ AND EXISTS(SELECT 1 FROM session_results r WHERE r.event_id=e.event_id AND r.player_id=p.player_id AND r.session_type='race')`
+
+// appendRaceFilters adds the optional predicates shared by every race
+// selection. The query must select from events e joined with
+// event_participations p, and the Steam ID must already be bound.
+func appendRaceFilters(query *strings.Builder, args *[]any, options RaceOptions) {
+	if options.From != nil {
+		query.WriteString(` AND e.event_at>=?`)
+		*args = append(*args, ceilingMicro(*options.From))
+	}
+	if options.To != nil {
+		query.WriteString(` AND e.event_at<?`)
+		*args = append(*args, ceilingMicro(*options.To))
+	}
+	if options.Track != "" {
+		query.WriteString(` AND e.track=?`)
+		*args = append(*args, options.Track)
+	}
+	if options.Class != "" {
+		query.WriteString(` AND p.car_class=?`)
+		*args = append(*args, options.Class)
+	}
+	if options.EventType != "" {
+		query.WriteString(` AND e.event_type=?`)
+		*args = append(*args, options.EventType)
+	}
+}
+
+const raceEventColumns = `SELECT e.event_id,e.series_id,e.event_at,e.title,e.event_type,e.tier,e.track,e.track_scene,e.split_no,e.official,e.team_event,e.raw_path,e.imported_at,
+ p.player_id,p.display_name,p.car_class,p.dr_rank,p.dr_tier,p.dr_progress,p.sr_rank,p.sr_tier,p.sr_progress,p.dr_adjustment,p.sr_adjustment,p.joker_played`
+
 // LatestRaces selects events before joining their sessions. References are
 // resolved within the same read transaction, including observations at Event.At.
 // Date filters bound the selected events, never the reference observations.
@@ -301,37 +336,14 @@ func (s *Store) LatestRaces(ctx context.Context, steamID string, options RaceOpt
 	if options.From != nil && options.To != nil && !options.From.Before(*options.To) {
 		return nil, errors.New("race options require from before to")
 	}
-	const selectSQL = `SELECT e.event_id,e.series_id,e.event_at,e.title,e.event_type,e.tier,e.track,e.track_scene,e.split_no,e.official,e.team_event,e.raw_path,e.imported_at,
- p.player_id,p.display_name,p.car_class,p.dr_rank,p.dr_tier,p.dr_progress,p.sr_rank,p.sr_tier,p.sr_progress,p.dr_adjustment,p.sr_adjustment,p.joker_played
- FROM events e JOIN event_participations p ON p.event_id=e.event_id
- WHERE p.player_id=(SELECT player_id FROM players WHERE steam_id=?)
- AND EXISTS(SELECT 1 FROM session_results r WHERE r.event_id=e.event_id AND r.player_id=p.player_id AND r.session_type='race')`
 	var query strings.Builder
 	// Reserve space for every optional predicate and the ordering/limit clause.
-	query.Grow(len(selectSQL) + 256)
-	query.WriteString(selectSQL)
+	query.Grow(len(raceEventColumns) + len(raceSelection) + 256)
+	query.WriteString(raceEventColumns)
+	query.WriteString(raceSelection)
 	args := make([]any, 0, 8)
 	args = append(args, steamID)
-	if options.From != nil {
-		query.WriteString(` AND e.event_at>=?`)
-		args = append(args, ceilingMicro(*options.From))
-	}
-	if options.To != nil {
-		query.WriteString(` AND e.event_at<?`)
-		args = append(args, ceilingMicro(*options.To))
-	}
-	if options.Track != "" {
-		query.WriteString(` AND e.track=?`)
-		args = append(args, options.Track)
-	}
-	if options.Class != "" {
-		query.WriteString(` AND p.car_class=?`)
-		args = append(args, options.Class)
-	}
-	if options.EventType != "" {
-		query.WriteString(` AND e.event_type=?`)
-		args = append(args, options.EventType)
-	}
+	appendRaceFilters(&query, &args, options)
 	query.WriteString(` ORDER BY e.event_at DESC,e.event_id DESC LIMIT ? OFFSET ?`)
 	args = append(args, options.Limit, options.Offset)
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
@@ -400,4 +412,93 @@ func loadResults(ctx context.Context, tx *sql.Tx, eventID string, playerID int64
 		results = append(results, r)
 	}
 	return results, rows.Err()
+}
+
+// TrackStats aggregates every matching race session per track in one query.
+// Limit and Offset are ignored on purpose: the aggregation never depends on
+// list paging. Rows are ordered by race count, then track name.
+func (s *Store) TrackStats(ctx context.Context, steamID string, options RaceOptions) ([]TrackStats, error) {
+	if steamID == "" {
+		return nil, errors.New("Steam ID is required")
+	}
+	if options.From != nil && options.To != nil && !options.From.Before(*options.To) {
+		return nil, errors.New("race options require from before to")
+	}
+	var query strings.Builder
+	// Unpositioned (DNF) rows never join averages or best positions; wins and
+	// podiums stay zero so a winless track is not reported as missing data.
+	query.Grow(1024)
+	query.WriteString(`SELECT e.track,
+ COUNT(DISTINCT e.event_id) AS races,
+ COUNT(*) AS starts,
+ SUM(CASE WHEN r.position=1 THEN 1 ELSE 0 END),
+ SUM(CASE WHEN r.position BETWEEN 1 AND 3 THEN 1 ELSE 0 END),
+ AVG(r.position),
+ MIN(r.position),
+ MIN(r.best_lap_us),
+ SUM(CASE WHEN r.class_position=1 THEN 1 ELSE 0 END),
+ SUM(CASE WHEN r.class_position BETWEEN 1 AND 3 THEN 1 ELSE 0 END),
+ AVG(r.class_position),
+ MIN(r.class_position)
+ FROM events e
+ JOIN event_participations p ON p.event_id=e.event_id
+ JOIN session_results r ON r.event_id=e.event_id AND r.player_id=p.player_id AND r.session_type='race'
+ WHERE p.player_id=(SELECT player_id FROM players WHERE steam_id=?)`)
+	args := make([]any, 0, 6)
+	args = append(args, steamID)
+	appendRaceFilters(&query, &args, options)
+	query.WriteString(` GROUP BY e.track ORDER BY races DESC,e.track ASC`)
+	rows, err := s.db.QueryContext(ctx, query.String(), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	stats := []TrackStats{}
+	for rows.Next() {
+		var row TrackStats
+		if err := rows.Scan(&row.Track, &row.Races, &row.Starts,
+			&row.Overall.Wins, &row.Overall.Podiums, &row.Overall.AvgPosition, &row.Overall.BestPosition, &row.BestLapUs,
+			&row.Class.Wins, &row.Class.Podiums, &row.Class.AvgPosition, &row.Class.BestPosition); err != nil {
+			return nil, err
+		}
+		stats = append(stats, row)
+	}
+	return stats, rows.Err()
+}
+
+// RaceFilterValues lists the distinct track, class, and event-type values the
+// race filters can match, each ordered and never null.
+func (s *Store) RaceFilterValues(ctx context.Context, steamID string) (RaceFilterValues, error) {
+	values := RaceFilterValues{Tracks: []string{}, Classes: []string{}, EventTypes: []string{}}
+	if steamID == "" {
+		return values, errors.New("Steam ID is required")
+	}
+	columns := []struct {
+		expression string
+		target     *[]string
+	}{
+		{"e.track", &values.Tracks},
+		{"p.car_class", &values.Classes},
+		{"e.event_type", &values.EventTypes},
+	}
+	for _, column := range columns {
+		rows, err := s.db.QueryContext(ctx, `SELECT DISTINCT `+column.expression+raceSelection+` ORDER BY `+column.expression, steamID)
+		if err != nil {
+			return values, err
+		}
+		for rows.Next() {
+			var value string
+			if err := rows.Scan(&value); err != nil {
+				rows.Close()
+				return values, err
+			}
+			*column.target = append(*column.target, value)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return values, err
+		}
+		rows.Close()
+	}
+	return values, nil
 }

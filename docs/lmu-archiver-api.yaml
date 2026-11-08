@@ -12,6 +12,8 @@ There is no authentication, TLS, or CORS support.
 | `/api/v1/races` | `limit`: positive integer, default 10; `offset`: non-negative integer, default 0; optional `from`, `to`, `track`, `class`, `event-type` | Race events with the account's race results, newest first |
 | `/api/v1/ratings` | `limit=N`: positive integer | Latest N stored rating-change observations, oldest first |
 | `/api/v1/ratings` | `from`, `to`: date or RFC3339 string | Observations in `[from, to)`, oldest first |
+| `/api/v1/stats/tracks` | optional `from`, `to`, `track`, `class`, `event-type` | Per-track aggregation over every matching race, most races first |
+| `/api/v1/filters` | none | Distinct `tracks`, `classes`, and `eventTypes` the race filters can match |
 
 Without `limit`, ratings default to the last 30 days; dates mean midnight UTC.
 For ratings, do not combine `limit` with `from`/`to` (400). An empty `limit` means 10.
@@ -28,7 +30,24 @@ Races apply filters, then `event_at DESC, event_id DESC` ordering, then
 or overflowing numbers return 400. An offset at or beyond the end returns `[]`.
 Pages are independent reads and may shift during sync; see
 [race pagination](../README.md#race-pagination).
-Responses are arrays; no matches returns `[]`. Missing values use `null`.
+`/api/v1/stats/tracks` uses the same filters as races and aggregates every
+matching race session (`session_type='race'`), never one list page. `races`
+counts distinct events and `starts` race session blocks. `overall` aggregates
+`position` and `class` aggregates `class_position`; the two ranking kinds are
+reported separately and never blended. Rows with a null `position` (null
+`class_position` for class stats) count toward `starts` but never join that
+ranking's averages or best positions; `finish_status` is not consulted.
+`wins` and `podiums` are plain counts. `avgPosition` and `bestPosition` are
+`null` when no positioned result exists. `bestLapUs` is the fastest race lap
+on the track, or `null` when no race lap time exists. Rows are ordered by
+`races` descending, then track name.
+`/api/v1/filters` returns the distinct values the race filters can match,
+each as a sorted array; only events with the account's own race sessions
+contribute, so every offered value can produce matches. Both endpoints return
+the account's data without account selection.
+`/api/v1/races`, `/api/v1/ratings`, and `/api/v1/stats/tracks` return arrays;
+no matches returns `[]`. `/api/v1/filters` returns one object whose fields are
+`[]` when nothing matches. Missing values use `null`.
 The initial rating observation counts as a point; unchanged checks add no point.
 
 ## Main response fields
@@ -40,6 +59,13 @@ The initial rating observation counts as a point; unchanged checks add no point.
 | Race | `referenceRating` | rating object or null |
 | Rating | `observedAt` | string (UTC RFC3339) |
 | Rating | `drElo`, `srRating` | number |
+| TrackStats | `track` | string |
+| TrackStats | `races`, `starts` | integer |
+| TrackStats | `overall`, `class` | position-stats object |
+| PositionStats | `wins`, `podiums` | integer |
+| PositionStats | `avgPosition`, `bestPosition` | number or null, integer or null |
+| TrackStats | `bestLapUs` | integer microseconds or null |
+| Filters | `tracks`, `classes`, `eventTypes` | arrays of strings |
 
 `referenceRating` is the latest observation at/before the event, not a confirmed
 post-race rating. Session durations ending in `Us` are integer microseconds.
@@ -66,6 +92,25 @@ Examples show selected fields; actual responses contain additional fields.
   {"observedAt":"2026-10-02T00:00:00Z","drElo":1500.25,"srRating":4.25},
   {"observedAt":"2026-10-03T00:00:00Z","drElo":1510.25,"srRating":4.5}
 ]
+```
+
+`GET /api/v1/stats/tracks?class=GT3`
+
+```json
+[{
+  "track": "Le Mans",
+  "races": 2,
+  "starts": 3,
+  "overall": {"wins": 1, "podiums": 2, "avgPosition": 3.5, "bestPosition": 1},
+  "class": {"wins": 2, "podiums": 3, "avgPosition": 1.5, "bestPosition": 1},
+  "bestLapUs": 218350000
+}]
+```
+
+`GET /api/v1/filters`
+
+```json
+{"tracks": ["Le Mans", "Monza"], "classes": ["GT3"], "eventTypes": ["daily", "specialevent"]}
 ```
 
 Errors use `{"error":"message"}`: 400 invalid query, 404 unknown path,

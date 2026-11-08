@@ -9,7 +9,8 @@ online racing data under your own control.
 current DR/SR profile, saves credential-free JSON captures, and imports results
 and changed ratings into SQLite. `sync --skip-download` replays saved inputs without network access.
 `serve` exposes the archive as a read-only JSON API. The separate React frontend
-currently displays Hello World; the dashboard and API integration are not implemented.
+is a single-page dashboard over that API, showing ratings, race history, and
+per-track statistics; see [Frontend](#frontend).
 Local mocks support the complete synchronization flow without either service.
 
 ## Goals and data ownership
@@ -262,7 +263,8 @@ per-race changes cannot be recovered from result arrows.
 
 ### Race filters
 
-`races` and `GET /api/v1/races` accept the same optional filters, combined with AND:
+`races`, `GET /api/v1/races`, and `GET /api/v1/stats/tracks` accept the same
+optional filters, combined with AND:
 
 | CLI flag / HTTP parameter | Match |
 | --- | --- |
@@ -404,9 +406,21 @@ curl 'http://127.0.0.1:8080/api/v1/ratings?limit=20'
   oldest first for charting. `limit` must be positive; an empty value means 10.
   Combining `limit` with `from` or `to` returns 400. The initial observation is
   returned only if it is among the selected points; unchanged checks add no points.
-- Successful responses are the same JSON arrays as CLI `--json`. Invalid query
-  inputs return 400, unknown routes 404, unsupported methods 405, and query
-  failures 500. Errors use `{"error":"..."}` without database internals.
+- `GET /api/v1/stats/tracks`: the same optional `from`, `to`, `track`, `class`,
+  and `event-type` filters as races, aggregated per track over every matching
+  race session. `races` counts distinct events and `starts` race session blocks;
+  `overall` and `class` keep the two ranking kinds separate. Rows with a null
+  `position` (null `class_position` for class stats) count toward `starts` but
+  never join that ranking's averages or best positions; `finish_status` is not
+  consulted. There is no paging and no `limit`/`offset`.
+- `GET /api/v1/filters`: the distinct `tracks`, `classes`, and `eventTypes`
+  the race filters can match, as sorted arrays. Only events with the account's
+  own race sessions contribute.
+- `races` and `ratings` responses are the same JSON arrays as CLI `--json`.
+  `GET /api/v1/stats/tracks` returns a JSON array and `GET /api/v1/filters`
+  returns a single object; both are HTTP-only and have no CLI command. Invalid
+  query inputs return 400, unknown routes 404, unsupported methods 405, and
+  query failures 500. Errors use `{"error":"..."}` without database internals.
 - `serve` does not authenticate, synchronize, migrate, or make upstream requests.
   A separate `sync` process can update the database while it is running.
 - Ctrl-C/SIGTERM shuts the server down gracefully.
@@ -467,25 +481,48 @@ Tests use local HTTP servers and do not contact LMU or RaceOS.
 
 ### Frontend
 
-The frontend uses Node.js **26.13.0** (Active LTS, supported through April 2029)
-and its bundled npm **11.20.0**, React **19.3.1**, TypeScript **7.0.2**, and
-Vite **8.3.6**. Node.js is only required for frontend development and builds,
-not for the Go commands or the production static server. See the
+The frontend is a single-page dashboard built with Node.js **26.13.0**
+(Active LTS, supported through April 2029) and its bundled npm **11.20.0**,
+React **19.3.1**, TypeScript **7.0.2**, Vite **8.3.6**, and Recharts **3.10.1**.
+Node.js is only required for frontend development and builds, not for the Go
+commands or the production static server. See the
 [Node.js release schedule](https://github.com/nodejs/Release/blob/main/schedule.json).
 
-Run these commands from the repository root. With Node.js and npm installed:
+The page shows the latest DR/SR observations with their observation times and
+the change from the previous observation, a DR/SR time-series chart whose
+`Brush` selects a period, the race history with filters and paging, and
+per-track statistics aggregated by the API over every matching race. The
+period selected with the brush and the track/class/event-type filters scope
+the race history and the per-track statistics; the rating series itself is
+never filtered. The brush selection, filters, page, selected race, and
+comparison target are shared state in one page; no page navigation happens.
+Ratings are observations at sync time, not per-race confirmed values, and
+`referenceRating` is not displayed. Loading, empty, error, and
+re-authentication-required states are rendered separately per section.
+
+The development server proxies `/api` to the Go API so the page and the API
+share one origin, matching the production Gateway routing. The proxy target
+defaults to `http://127.0.0.1:8080` and can be overridden with
+`LMU_API_ORIGIN`; production builds and the nginx configuration contain no
+API hostnames, because the Gateway routes `/api` to the Go service.
+
+Start the API with the archive you synced, then the development server. For the
+dummy archive produced by the [local API mocks](#local-api-mocks), use
+`--db data/dev/archive.sqlite3` instead:
 
 ```sh
+./bin/lmu-archiver serve --db data/archive.sqlite3 --listen 127.0.0.1:8080
 npm --prefix frontend ci
 npm --prefix frontend run dev -- --host 0.0.0.0 --port 5173 --strictPort
 ```
 
 On Linux with rootless Podman, use the official Node image instead of installing
-Node.js on the host:
+Node.js on the host. Host networking is required so the development proxy inside
+the container can reach `serve` on the host's loopback; no port publishing is
+needed:
 
 ```sh
-podman run --rm -it --init --userns=keep-id --env HOME=/tmp \
-  -p 0.0.0.0:5173:5173 \
+podman run --rm -it --init --network=host --userns=keep-id --env HOME=/tmp \
   -v "$PWD/frontend:/app" -w /app \
   docker.io/library/node:26.13.0-trixie-slim \
   sh -c 'npm ci && exec npm run dev -- --host 0.0.0.0 --port 5173 --strictPort'
@@ -494,10 +531,10 @@ podman run --rm -it --init --userns=keep-id --env HOME=/tmp \
 Both methods listen on all IPv4 interfaces and stop with Ctrl-C.
 From another machine, open `http://<server-lan-ip>:5173/`, using the server's LAN IP.
 
-Check that `LMU Archiver` and `Hello World` appear, the browser console has no
-errors, and JavaScript/CSS requests succeed in the Network panel. Editing
-`frontend/src/` updates the page without a manual reload. The page currently
-makes no API requests and needs no Go server or archive.
+Check that the rating cards, chart, race table, and track statistics render,
+that moving the chart brush narrows the race list and the track statistics to
+the selected period, and that the browser console shows no errors. Editing
+`frontend/src/` updates the page without a manual reload.
 
 These development servers provide no authentication or TLS.
 Access from another machine also requires the host firewall to allow the
