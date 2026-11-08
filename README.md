@@ -262,7 +262,8 @@ per-race changes cannot be recovered from result arrows.
 
 ### Race filters
 
-`races` and `GET /api/v1/races` accept the same optional filters, combined with AND:
+`races`, `GET /api/v1/races`, and `GET /api/v1/stats/tracks` accept the same
+optional filters, combined with AND:
 
 | CLI flag / HTTP parameter | Match |
 | --- | --- |
@@ -404,9 +405,21 @@ curl 'http://127.0.0.1:8080/api/v1/ratings?limit=20'
   oldest first for charting. `limit` must be positive; an empty value means 10.
   Combining `limit` with `from` or `to` returns 400. The initial observation is
   returned only if it is among the selected points; unchanged checks add no points.
-- Successful responses are the same JSON arrays as CLI `--json`. Invalid query
-  inputs return 400, unknown routes 404, unsupported methods 405, and query
-  failures 500. Errors use `{"error":"..."}` without database internals.
+- `GET /api/v1/stats/tracks`: the same optional `from`, `to`, `track`, `class`,
+  and `event-type` filters as races, aggregated per track over every matching
+  race session. `races` counts distinct events and `starts` race session blocks;
+  `overall` and `class` keep the two ranking kinds separate. Rows with a null
+  `position` (null `class_position` for class stats) count toward `starts` but
+  never join that ranking's averages or best positions; `finish_status` is not
+  consulted. There is no paging and no `limit`/`offset`.
+- `GET /api/v1/filters`: the distinct `tracks`, `classes`, and `eventTypes`
+  the race filters can match, as sorted arrays. Only events with the account's
+  own race sessions contribute.
+- `races` and `ratings` responses are the same JSON arrays as CLI `--json`.
+  `GET /api/v1/stats/tracks` returns a JSON array and `GET /api/v1/filters`
+  returns a single object; both are HTTP-only and have no CLI command. Invalid
+  query inputs return 400, unknown routes 404, unsupported methods 405, and
+  query failures 500. Errors use `{"error":"..."}` without database internals.
 - `serve` does not authenticate, synchronize, migrate, or make upstream requests.
   A separate `sync` process can update the database while it is running.
 - Ctrl-C/SIGTERM shuts the server down gracefully.

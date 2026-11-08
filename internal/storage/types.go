@@ -114,3 +114,36 @@ type RaceOptions struct {
 	Class     string
 	EventType string
 }
+
+// PositionStats aggregates one ranking kind. Overall and class rankings stay
+// separate so a view cannot blend them. Null means no positioned result
+// exists, not a zero value.
+type PositionStats struct {
+	Wins         int      `json:"wins"`
+	Podiums      int      `json:"podiums"`
+	AvgPosition  *float64 `json:"avgPosition"`
+	BestPosition *int     `json:"bestPosition"`
+}
+
+// TrackStats aggregates the tracked player's race sessions per track across
+// every event matching the filters. Races counts distinct events and Starts
+// race session blocks; Limit and Offset in RaceOptions never apply here.
+// Overall uses position, Class uses class_position. BestLapUs is the fastest
+// race lap or null when no lap was recorded.
+type TrackStats struct {
+	Track     string        `json:"track"`
+	Races     int           `json:"races"`
+	Starts    int           `json:"starts"`
+	Overall   PositionStats `json:"overall"`
+	Class     PositionStats `json:"class"`
+	BestLapUs *int64        `json:"bestLapUs"`
+}
+
+// RaceFilterValues lists the distinct filter values the account's race
+// history can match. Only events with the tracked player's own race sessions
+// are considered, so every offered value can produce matches.
+type RaceFilterValues struct {
+	Tracks     []string `json:"tracks"`
+	Classes    []string `json:"classes"`
+	EventTypes []string `json:"eventTypes"`
+}
