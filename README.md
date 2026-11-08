@@ -152,16 +152,16 @@ port `16397` only for that local IP and the specified client on the Private
 profile. Review any existing firewall rules as well; this rule does not override
 broader permissions already configured.
 
-For example, if the Windows LAN IP is `192.168.10.16`, use this in the connecting
+For example, if the Windows LAN IP is `192.168.0.16`, use this in the connecting
 machine's `.env`:
 
 ```dotenv
-LMU_INT_API="http://192.168.10.16:16397"
+LMU_INT_API="http://192.168.0.16:16397"
 ```
 
 With LMU and its API running, inspect the proxy on Windows using
 `netsh interface portproxy show v4tov4`. From the allowed client, check the HTTP
-connection with `curl --verbose --max-time 5 http://192.168.10.16:16397/`
+connection with `curl --verbose --max-time 5 http://192.168.0.16:16397/`
 (substitute your Windows IP). An HTTP error at `/` can still indicate that the
 connection works; it does not prove a particular API endpoint is available.
 
@@ -473,29 +473,47 @@ Vite **8.3.6**. Node.js is only required for frontend development and builds,
 not for the Go commands or the production static server. See the
 [Node.js release schedule](https://github.com/nodejs/Release/blob/main/schedule.json).
 
-With Node.js and npm installed:
+Run these commands from the repository root. With Node.js and npm installed:
 
 ```sh
-cd frontend
-npm ci
-npm run dev
+npm --prefix frontend ci
+npm --prefix frontend run dev -- --host 0.0.0.0 --port 5173 --strictPort
 ```
 
-Open `http://localhost:5173/`. The page displays `LMU Archiver` and `Hello World`;
-it makes no API requests and needs no Go server or archive. The development
-server is local-only by default; do not expose it to untrusted networks.
+On Linux with rootless Podman, use the official Node image instead of installing
+Node.js on the host:
+
+```sh
+podman run --rm -it --init --userns=keep-id --env HOME=/tmp \
+  -p 0.0.0.0:5173:5173 \
+  -v "$PWD/frontend:/app" -w /app \
+  docker.io/library/node:26.13.0-trixie-slim \
+  sh -c 'npm ci && exec npm run dev -- --host 0.0.0.0 --port 5173 --strictPort'
+```
+
+Both methods listen on all IPv4 interfaces and stop with Ctrl-C.
+From another machine, open `http://<server-lan-ip>:5173/`, using the server's LAN IP.
+
+Check that `LMU Archiver` and `Hello World` appear, the browser console has no
+errors, and JavaScript/CSS requests succeed in the Network panel. Editing
+`frontend/src/` updates the page without a manual reload. The page currently
+makes no API requests and needs no Go server or archive.
+
+These development servers provide no authentication or TLS.
+Access from another machine also requires the host firewall to allow the
+client network on these ports.
 
 From the repository root:
 
 ```sh
 npm --prefix frontend run typecheck
 npm --prefix frontend run build
-npm --prefix frontend run preview
+npm --prefix frontend run preview -- --host 0.0.0.0 --port 4173 --strictPort
 ```
 
 `build` runs the TypeScript checks before generating `frontend/dist/`.
-`preview` is a local-only inspection server at `http://localhost:4173/`, not
-the production server. Direct
+`preview` serves the build at `http://<server-lan-ip>:4173/` for inspection,
+not as a production server. Direct
 dependencies are pinned and `package-lock.json` is committed; CI and containers
 use `npm ci`. Keep the package manager/engine declarations, the lockfile,
 and the Docker base image pins in sync when updating versions.
@@ -652,10 +670,15 @@ Inside a container, `127.0.0.1` refers to the container, not the LMU PC.
 ```sh
 docker build -t lmu-archiver-frontend frontend
 docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
-  -p 127.0.0.1:18080:8080 lmu-archiver-frontend
+  -p 0.0.0.0:18080:8080 lmu-archiver-frontend
 ```
 
-Open `http://localhost:18080/`. The build uses Node.js **26.13.0** on Debian
+These commands also work with `podman` in place of `docker`. Unlike the Vite
+development server, nginx serves a fixed build: rebuild the image and restart
+the container after editing frontend sources. Stop the foreground container
+with Ctrl-C.
+
+Open `http://<server-lan-ip>:18080/` from another machine. The build uses Node.js **26.13.0** on Debian
 Trixie slim; the runtime uses nginx **1.30.6** Stable on Debian Trixie. Both
 base images are pinned by tag and digest. The runtime runs as UID/GID `101:101`
 on port `8080`, with writable state confined to `/tmp`. Node.js, npm,
@@ -665,9 +688,8 @@ HTML uses `Cache-Control: no-cache`; hashed assets use a one-year immutable
 cache. Missing files, including unknown `/assets/` paths and `/api` requests,
 return 404 rather than falling back to the page. There is no client-side
 pathname router or API proxy. The image contains no Go API origin or credentials.
-Future same-origin `/api/*` routing belongs to the separate infrastructure
-repository, ashley-infra, not to this nginx image. No cluster or Cloudflare
-changes are included.
+Future same-origin `/api/*` routing belongs to your own reverse proxy or
+gateway, not to this nginx image.
 
 ### Published images
 
