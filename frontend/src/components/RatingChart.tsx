@@ -50,7 +50,7 @@ export function RatingChart({
           <YAxis yAxisId="dr" stroke="#2563eb" domain={["auto", "auto"]} width={60} />
           <YAxis yAxisId="sr" orientation="right" stroke="#059669" domain={["auto", "auto"]} width={44} />
           <Tooltip
-            formatter={(value, name) => [Number(value).toFixed(2), name === "dr" ? "DR" : "SR"]}
+            formatter={value => Number(value).toFixed(2)}
             labelFormatter={label => formatDateTime(new Date(Number(label)).toISOString())}
           />
           <Line
