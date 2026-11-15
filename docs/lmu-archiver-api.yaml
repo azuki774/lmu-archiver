@@ -57,6 +57,7 @@ The initial rating observation counts as a point; unchanged checks add no point.
 | Race | `event`, `participation` | object |
 | Race | `results` | array of session-result objects |
 | Race | `referenceRating` | rating object or null |
+| Race | `followingRating` | rating object or null |
 | Rating | `observedAt` | string (UTC RFC3339) |
 | Rating | `drElo`, `srRating` | number |
 | TrackStats | `track` | string |
@@ -67,9 +68,11 @@ The initial rating observation counts as a point; unchanged checks add no point.
 | TrackStats | `bestLapUs` | integer microseconds or null |
 | Filters | `tracks`, `classes`, `eventTypes` | arrays of strings |
 
-`referenceRating` is the latest observation at/before the event, not a confirmed
-post-race rating. Session durations ending in `Us` are integer microseconds.
-See [Go response types](../internal/storage/types.go) for the complete fields.
+`referenceRating` is the latest observation at/before the event and
+`followingRating` the earliest observation strictly after it; neither is a
+confirmed post-race rating. Session durations ending in `Us` are integer
+microseconds. See [Go response types](../internal/storage/types.go) for the
+complete fields.
 
 ## Examples
 

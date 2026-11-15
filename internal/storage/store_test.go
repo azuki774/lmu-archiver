@@ -63,6 +63,9 @@ func TestLatestEventsAndAsOfReference(t *testing.T) {
 		if r.ReferenceRating == nil || r.ReferenceRating.DRElo != 120 || !r.ReferenceRating.ObservedAt.Equal(base) {
 			t.Fatalf("wrong as-of reference: %+v", r.ReferenceRating)
 		}
+		if r.FollowingRating == nil || r.FollowingRating.DRElo != 999 || !r.FollowingRating.ObservedAt.Equal(base.Add(time.Minute)) {
+			t.Fatalf("wrong following observation: %+v", r.FollowingRating)
+		}
 		if r.Results[1].GridPosition != nil || r.Results[1].BestLapUS != nil {
 			t.Fatal("missing values became zero")
 		}
@@ -73,6 +76,9 @@ func TestLatestEventsAndAsOfReference(t *testing.T) {
 	}
 	if len(all) != 3 || all[2].ReferenceRating != nil {
 		t.Fatalf("expected no observation before oldest event: %+v", all)
+	}
+	if all[2].FollowingRating == nil || all[2].FollowingRating.DRElo != 100 {
+		t.Fatalf("expected following observation for oldest event: %+v", all[2].FollowingRating)
 	}
 	// A late historical import must change the reference without rewriting events.
 	record(t, s, self, base.Add(-time.Hour), 70)
@@ -94,6 +100,9 @@ func TestLatestEventsAndAsOfReference(t *testing.T) {
 	}
 	if all[2].Event.ID != "between" || all[2].ReferenceRating.DRElo != 100 {
 		t.Fatal("latest prior observation not selected")
+	}
+	if all[2].FollowingRating == nil || all[2].FollowingRating.DRElo != 110 || all[3].FollowingRating == nil || all[3].FollowingRating.DRElo != 100 {
+		t.Fatalf("wrong following observations: %+v, %+v", all[2].FollowingRating, all[3].FollowingRating)
 	}
 }
 

@@ -91,14 +91,17 @@ type RatingSnapshot struct {
 	SRProgress float64   `json:"srProgress"`
 }
 
-// Race combines an event, the tracked player's sessions, and an optional
-// latest observation at or before Event.At. ReferenceRating is never copied
-// into event or participation rows and is not the confirmed post-race rating.
+// Race combines an event, the tracked player's sessions, and the observations
+// bracketing Event.At. ReferenceRating is the latest observation at or before
+// the event and FollowingRating the earliest strictly after it; neither is
+// copied into event or participation rows and neither is the confirmed
+// post-race rating.
 type Race struct {
 	Event           Event           `json:"event"`
 	Participation   Participation   `json:"participation"`
 	Results         []SessionResult `json:"results"`
 	ReferenceRating *RatingSnapshot `json:"referenceRating"`
+	FollowingRating *RatingSnapshot `json:"followingRating"`
 }
 
 // RaceOptions filters and bounds the events selected for one tracked player.
