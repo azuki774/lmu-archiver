@@ -1,7 +1,9 @@
+import { Fragment } from "react";
 import type { Race, SessionResult } from "../api/types";
 import { formatDateTime } from "../lib/format";
+import { RaceDetailCard } from "./RaceDetail";
 
-// レース一覧。行の選択と比較対象は親の共有状態に入る。
+// レース一覧。行の選択は親の共有状態に入り、詳細は選択行の直下に展開する。
 // 複数のレースブロックを持つイベントは、順位を走行ごとに並べて表示する。
 
 function raceRows(race: Race): SessionResult[] {
@@ -24,15 +26,13 @@ function positionsText(race: Race, key: "position" | "classPosition"): string {
 export function RaceList({
   races,
   selectedEventId,
-  compareEventId,
   onSelect,
-  onCompare,
+  onClear,
 }: {
   races: Race[];
   selectedEventId: string | null;
-  compareEventId: string | null;
   onSelect: (race: Race) => void;
-  onCompare: (race: Race) => void;
+  onClear: () => void;
 }) {
   return (
     <table className="data-table race-table">
@@ -51,27 +51,29 @@ export function RaceList({
         {races.map(race => {
           const eventId = race.event.eventId;
           const selected = eventId === selectedEventId;
-          const compared = eventId === compareEventId;
           return (
-            <tr
-              key={eventId}
-              className={selected ? "row-selected" : compared ? "row-compare" : undefined}
-            >
-              <td>{formatDateTime(race.event.eventAt)}</td>
-              <td title={race.event.title}>{race.event.track}</td>
-              <td>{race.participation.carClass}</td>
-              <td>{race.event.eventType}</td>
-              <td>{positionsText(race, "position")}</td>
-              <td>{positionsText(race, "classPosition")}</td>
-              <td className="row-actions">
-                <button type="button" onClick={() => onSelect(race)}>
-                  {selected ? "選択中" : "詳細"}
-                </button>
-                <button type="button" onClick={() => onCompare(race)}>
-                  {compared ? "比較中" : "比較"}
-                </button>
-              </td>
-            </tr>
+            <Fragment key={eventId}>
+              <tr className={selected ? "row-selected" : undefined}>
+                <td>{formatDateTime(race.event.eventAt)}</td>
+                <td title={race.event.title}>{race.event.track}</td>
+                <td>{race.participation.carClass}</td>
+                <td>{race.event.eventType}</td>
+                <td>{positionsText(race, "position")}</td>
+                <td>{positionsText(race, "classPosition")}</td>
+                <td className="row-actions">
+                  <button type="button" onClick={() => onSelect(race)}>
+                    {selected ? "選択中" : "詳細"}
+                  </button>
+                </td>
+              </tr>
+              {selected && (
+                <tr className="row-detail">
+                  <td colSpan={7}>
+                    <RaceDetailCard race={race} onClear={onClear} />
+                  </td>
+                </tr>
+              )}
+            </Fragment>
           );
         })}
       </tbody>

@@ -1,5 +1,5 @@
-import type { Race, SessionResult, SessionType } from "../api/types";
-import { formatCount, formatDateTime, formatLapTime, formatPosition } from "../lib/format";
+import type { Race, RatingSnapshot, SessionResult, SessionType } from "../api/types";
+import { formatCount, formatDateTime, formatDelta, formatLapTime, formatPosition } from "../lib/format";
 
 const SESSION_LABELS: Record<SessionType, string> = {
   practice: "練習",
@@ -21,17 +21,33 @@ function sessionLabel(row: SessionResult): string {
   return label;
 }
 
-// 選択したレースと比較対象のセッション詳細。referenceRating は
-// 「レース後の確定レート」ではないため表示しない。
+function ratingCell(snapshot: RatingSnapshot | null, kind: "dr" | "sr"): string {
+  if (snapshot === null) return "—";
+  const value = kind === "dr" ? snapshot.drElo.toFixed(2) : snapshot.srRating.toFixed(2);
+  const rank = kind === "dr" ? snapshot.drRank : snapshot.srRank;
+  return `${value} (${rank})`;
+}
+
+function ratingDelta(
+  before: RatingSnapshot | null,
+  after: RatingSnapshot | null,
+  kind: "dr" | "sr",
+): string {
+  if (before === null || after === null) return "—";
+  return formatDelta(kind === "dr" ? after.drElo - before.drElo : after.srRating - before.srRating);
+}
+
+// 選択したレースのセッション詳細。referenceRating と followingRating は
+// レース前後の観測（同期時点）であり、レース単位の確定値ではない。
 export function RaceDetailCard({
-  heading,
   race,
   onClear,
 }: {
-  heading: string;
   race: Race;
   onClear: () => void;
 }) {
+  const before = race.referenceRating;
+  const after = race.followingRating;
   const sessions = [...race.results].sort(
     (a, b) =>
       SESSION_ORDER[a.sessionType] - SESSION_ORDER[b.sessionType] ||
@@ -41,9 +57,7 @@ export function RaceDetailCard({
   return (
     <article className="detail-card">
       <header className="detail-header">
-        <h3>
-          {heading}: {race.event.title}
-        </h3>
+        <h3>{race.event.title}</h3>
         <button type="button" onClick={onClear}>
           閉じる
         </button>
@@ -66,6 +80,40 @@ export function RaceDetailCard({
           <dd>{race.event.eventType}</dd>
         </div>
       </dl>
+      <section className="rating-transition">
+        <h4>DR/SR 推移</h4>
+        <table className="data-table transition-table">
+          <thead>
+            <tr>
+              <th scope="col" aria-label="種別" />
+              <th scope="col">レース前観測</th>
+              <th scope="col">レース後観測</th>
+              <th scope="col">変化</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">DR</th>
+              <td>{ratingCell(before, "dr")}</td>
+              <td>{ratingCell(after, "dr")}</td>
+              <td>{ratingDelta(before, after, "dr")}</td>
+            </tr>
+            <tr>
+              <th scope="row">SR</th>
+              <td>{ratingCell(before, "sr")}</td>
+              <td>{ratingCell(after, "sr")}</td>
+              <td>{ratingDelta(before, after, "sr")}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p className="transition-times">
+          前観測: {before === null ? "—" : formatDateTime(before.observedAt)} ・ 後観測:{" "}
+          {after === null ? "—" : formatDateTime(after.observedAt)}
+        </p>
+        <p className="section-note">
+          DR/SR は同期時点の観測値であり、前後の観測の間に別のレースが含まれることがあります。
+        </p>
+      </section>
       <table className="data-table session-table">
         <thead>
           <tr>

@@ -494,10 +494,12 @@ the change from the previous observation, a DR/SR time-series chart whose
 per-track statistics aggregated by the API over every matching race. The
 period selected with the brush and the track/class/event-type filters scope
 the race history and the per-track statistics; the rating series itself is
-never filtered. The brush selection, filters, page, selected race, and
-comparison target are shared state in one page; no page navigation happens.
-Ratings are observations at sync time, not per-race confirmed values, and
-`referenceRating` is not displayed. Loading, empty, error, and
+never filtered. The brush selection, filters, page, and selected race are
+shared state in one page; no page navigation happens. Opening a race's detail
+shows the DR/SR observations bracketing the event (`referenceRating` and
+`followingRating`) with their change; these are observations at sync time, not
+per-race confirmed values, and other races may fall between the two
+observations. Loading, empty, error, and
 re-authentication-required states are rendered separately per section.
 
 The development server proxies `/api` to the Go API so the page and the API
