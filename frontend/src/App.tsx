@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FilterValues, Race, RatingSnapshot, TrackStats } from "./api/types";
 import { FilterBar } from "./components/FilterBar";
-import { RaceDetailCard } from "./components/RaceDetail";
 import { RaceList, RacePager } from "./components/RaceList";
 import { RatingCards } from "./components/RatingCards";
 import { RatingChart } from "./components/RatingChart";
@@ -15,7 +14,7 @@ const RATING_LIMIT = 365;
 const RACES_PER_PAGE = 20;
 const BRUSH_COMMIT_DELAY_MS = 300;
 
-// 1 ページのダッシュボード。共有状態（期間・フィルター・ページ・選択・比較）は
+// 1 ページのダッシュボード。共有状態（期間・フィルター・ページ・選択）は
 // この親コンポーネントに集約し、子へ渡す。ページ遷移は発生しない。
 export default function App() {
   const ratings = useResource<RatingSnapshot[]>(ratingsPath(RATING_LIMIT));
@@ -27,7 +26,6 @@ export default function App() {
   const [filters, setFilters] = useState<RaceFilters>(EMPTY_FILTERS);
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Race | null>(null);
-  const [compare, setCompare] = useState<Race | null>(null);
 
   // Brush 操作中は選択表示を即座に更新し、操作が落ち着いた時点で
   // 期間を確定させて API 取得を行う。
@@ -55,9 +53,6 @@ export default function App() {
 
   const handleSelect = (race: Race) => {
     setSelected(previous => (previous?.event.eventId === race.event.eventId ? null : race));
-  };
-  const handleCompare = (race: Race) => {
-    setCompare(previous => (previous?.event.eventId === race.event.eventId ? null : race));
   };
   const handleFiltersChange = (next: RaceFilters) => {
     setFilters(next);
@@ -132,28 +127,13 @@ export default function App() {
             <RaceList
               races={racesData}
               selectedEventId={selected?.event.eventId ?? null}
-              compareEventId={compare?.event.eventId ?? null}
               onSelect={handleSelect}
-              onCompare={handleCompare}
+              onClear={() => setSelected(null)}
             />
             <RacePager page={page} hasNext={hasNextPage} onPageChange={setPage} />
           </>
         )}
       </section>
-
-      {(selected !== null || compare !== null) && (
-        <section className="section" aria-label="レース詳細">
-          <h2>レース詳細</h2>
-          <div className="detail-row">
-            {selected !== null && (
-              <RaceDetailCard heading="選択" race={selected} onClear={() => setSelected(null)} />
-            )}
-            {compare !== null && (
-              <RaceDetailCard heading="比較" race={compare} onClear={() => setCompare(null)} />
-            )}
-          </div>
-        </section>
-      )}
 
       <section className="section" aria-label="トラック別戦績">
         <h2>

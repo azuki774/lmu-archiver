@@ -76,6 +76,7 @@ export interface Race {
   participation: Participation;
   results: SessionResult[];
   referenceRating: RatingSnapshot | null;
+  followingRating: RatingSnapshot | null;
 }
 
 export interface PositionStats {

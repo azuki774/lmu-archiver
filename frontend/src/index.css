@@ -234,12 +234,7 @@ button:disabled {
   background: #e8f0fe;
 }
 
-.row-compare {
-  background: #ecfdf5;
-}
-
-.row-selected:hover,
-.row-compare:hover {
+.row-selected:hover {
   filter: brightness(0.98);
 }
 
@@ -261,10 +256,15 @@ button:disabled {
   color: var(--muted);
 }
 
-.detail-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-  gap: 14px;
+.row-detail > td {
+  padding: 0;
+}
+
+.row-detail .detail-card {
+  border: none;
+  border-radius: 0;
+  border-top: 1px solid var(--border);
+  background: #f8fafc;
 }
 
 .detail-card {
@@ -305,6 +305,17 @@ button:disabled {
 
 .detail-meta dd {
   margin: 0;
+}
+
+.rating-transition h4 {
+  margin: 12px 0 8px;
+  font-size: 0.9rem;
+}
+
+.transition-times {
+  margin: 6px 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
 }
 
 .stats-table th:not(:first-child),

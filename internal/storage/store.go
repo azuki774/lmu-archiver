@@ -389,6 +389,13 @@ func (s *Store) LatestRaces(ctx context.Context, steamID string, options RaceOpt
 		} else if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
 		}
+		following, err := scanRating(tx.QueryRowContext(ctx, `SELECT `+ratingColumns+` FROM rating_snapshots
+   WHERE player_id=? AND observed_at>? ORDER BY observed_at ASC,snapshot_id ASC LIMIT 1`, r.Participation.PlayerID, r.Event.At.UnixMicro()))
+		if err == nil {
+			r.FollowingRating = &following
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
